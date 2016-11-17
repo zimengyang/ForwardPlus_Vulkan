@@ -1,4 +1,0 @@
-﻿  main.cpp
-c:\users\zimeng yang\documents\visual studio 2015\projects\hellotriangle_vulkan\src\hellotriangleapplication.h(120): warning C4267: '=': conversion from 'size_t' to 'uint32_t', possible loss of data
-c:\users\zimeng yang\documents\visual studio 2015\projects\hellotriangle_vulkan\src\hellotriangleapplication.h(124): warning C4267: '=': conversion from 'size_t' to 'uint32_t', possible loss of data
-  HelloTriangle_Vulkan.vcxproj -> C:\Users\Zimeng Yang\Documents\Visual Studio 2015\Projects\HelloTriangle_Vulkan\x64\Debug\HelloTriangle_Vulkan.exe

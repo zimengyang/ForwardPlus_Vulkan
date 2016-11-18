@@ -157,7 +157,7 @@
     <ClCompile Include="src\main.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="src\HelloTriangleApplication.h" />
+    <ClInclude Include="src\VulkanBaseApplication.h" />
     <ClInclude Include="src\VDeleter.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

@@ -7,13 +7,15 @@
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #include <glm/vec4.hpp>
 #include <glm/mat4x4.hpp>
+#include <glm/glm.hpp>
+
 
 #include <iostream>
 #include <vector>
 #include <set>
 #include <algorithm>
 #include <fstream>
-
+#include <array>
 
 #include "VDeleter.h"
 
@@ -68,6 +70,49 @@ struct SwapChainSupportDetails {
 };
 
 
+struct Vertex {
+	glm::vec2 pos;
+	glm::vec3 color;
+
+	static VkVertexInputBindingDescription getBindingDescription() {
+		VkVertexInputBindingDescription bindingDescription = {};
+		bindingDescription.binding = 0;
+		bindingDescription.stride = sizeof(Vertex);
+		bindingDescription.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+
+		return bindingDescription;
+	}
+
+	static std::array<VkVertexInputAttributeDescription, 2> getAttributeDescriptions() {
+		std::array<VkVertexInputAttributeDescription, 2> attributeDescriptions = {};
+		attributeDescriptions[0].binding = 0;
+		attributeDescriptions[0].location = 0;
+		attributeDescriptions[0].format = VK_FORMAT_R32G32_SFLOAT;
+		attributeDescriptions[0].offset = offsetof(Vertex, pos);
+
+		attributeDescriptions[1].binding = 0;
+		attributeDescriptions[1].location = 1;
+		attributeDescriptions[1].format = VK_FORMAT_R32G32B32_SFLOAT;
+		attributeDescriptions[1].offset = offsetof(Vertex, color);
+
+		return attributeDescriptions;
+	}
+};
+
+
+const std::vector<Vertex> vertices = {
+
+	{ { -0.5f, -0.5f },{ 0.0f, 1.0f, 0.0f } },
+	{ { 0.5f, -0.5f },{ 0.0f, 0.0f, 1.0f } },
+	{ { -0.5f, 0.5f },{ 1.0f, 0.0f, 0.0f } },
+	{ { 0.5f, 0.5f },{ 0.0f, 0.0f, 1.0f } }
+
+};
+
+const std::vector<uint16_t> indices = {
+	0,1,2,2,1,3
+};
+
 // base class for Vulkan app
 class VulkanBaseApplication {
 public:
@@ -120,6 +165,14 @@ private:
 	// semaphores
 	VDeleter<VkSemaphore> imageAvailableSemaphore{ device, vkDestroySemaphore };
 	VDeleter<VkSemaphore> renderFinishedSemaphore{ device, vkDestroySemaphore };
+
+	// vertex buffer
+	VDeleter<VkBuffer> vertexBuffer{ device, vkDestroyBuffer };
+	VDeleter<VkDeviceMemory> vertexBufferMemory{ device, vkFreeMemory };
+
+	// index buffer
+	VDeleter<VkBuffer> indexBuffer{ device, vkDestroyBuffer };
+	VDeleter<VkDeviceMemory> indexBufferMemory{ device, vkFreeMemory };
 
 
 	/************************************************************/
@@ -198,6 +251,8 @@ private:
 		createGraphicsPipeline();
 		createFramebuffers();
 		createCommandPool();
+		createVertexBuffer();
+		createIndexBuffer();
 		createCommandBuffers();
 		createSemaphores();
 	}
@@ -450,12 +505,15 @@ private:
 
 #pragma region Vertex Input State
 		// vertex input state
+		auto bindingDescription = Vertex::getBindingDescription();
+		auto attributeDescriptions = Vertex::getAttributeDescriptions();
+
 		VkPipelineVertexInputStateCreateInfo vertexInputInfo = {};
 		vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-		vertexInputInfo.vertexBindingDescriptionCount = 0;
-		vertexInputInfo.pVertexBindingDescriptions = nullptr; // Optional
-		vertexInputInfo.vertexAttributeDescriptionCount = 0;
-		vertexInputInfo.pVertexAttributeDescriptions = nullptr; // Optional
+		vertexInputInfo.vertexBindingDescriptionCount = 1;
+		vertexInputInfo.pVertexBindingDescriptions = &bindingDescription; // Optional
+		vertexInputInfo.vertexAttributeDescriptionCount = attributeDescriptions.size();
+		vertexInputInfo.pVertexAttributeDescriptions = attributeDescriptions.data(); // Optional
 #pragma endregion
 
 
@@ -464,6 +522,7 @@ private:
 		VkPipelineInputAssemblyStateCreateInfo inputAssembly = {};
 		inputAssembly.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
 		inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+		//inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP;
 		inputAssembly.primitiveRestartEnable = VK_FALSE;
 #pragma endregion
 
@@ -676,11 +735,20 @@ private:
 			renderPassInfo.clearValueCount = 1;
 			renderPassInfo.pClearValues = &clearColor;
 
+			// render pass begin
 			vkCmdBeginRenderPass(commandBuffers[i], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 
 			vkCmdBindPipeline(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
 
-			vkCmdDraw(commandBuffers[i], 3, 1, 0, 0);
+			// binding the vertex buffer
+			VkBuffer vertexBuffers[] = { vertexBuffer };
+			VkDeviceSize offsets[] = { 0 };
+			vkCmdBindVertexBuffers(commandBuffers[i], 0, 1, vertexBuffers, offsets);
+
+			vkCmdBindIndexBuffer(commandBuffers[i], indexBuffer, 0, VK_INDEX_TYPE_UINT16);
+
+			//vkCmdDraw(commandBuffers[i], vertices.size(), 1, 0, 0);
+			vkCmdDrawIndexed(commandBuffers[i], indices.size(), 1, 0, 0, 0);
 
 			vkCmdEndRenderPass(commandBuffers[i]);
 
@@ -727,6 +795,30 @@ private:
 		if (vkCreateRenderPass(device, &renderPassInfo, nullptr, renderPass.replace()) != VK_SUCCESS) {
 			throw std::runtime_error("failed to create render pass!");
 		}
+	}
+
+
+	void createVertexBuffer() {
+		VkDeviceSize bufferSize = sizeof(vertices[0]) * vertices.size();
+
+		VDeleter<VkBuffer> stagingBuffer{ device, vkDestroyBuffer };
+		VDeleter<VkDeviceMemory> stagingBufferMemory{ device, vkFreeMemory };
+		createBuffer(bufferSize, 
+			VK_BUFFER_USAGE_TRANSFER_SRC_BIT, 
+			VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, 
+			stagingBuffer, stagingBufferMemory);
+
+		void* data;
+		vkMapMemory(device, stagingBufferMemory, 0, bufferSize, 0, &data);
+			memcpy(data, vertices.data(), (size_t)bufferSize);
+		vkUnmapMemory(device, stagingBufferMemory);
+
+		createBuffer(bufferSize, 
+			VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, 
+			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, 
+			vertexBuffer, vertexBufferMemory);
+
+		copyBuffer(stagingBuffer, vertexBuffer, bufferSize);
 	}
 
 
@@ -986,4 +1078,99 @@ private:
 			throw std::runtime_error("failed to create shader module!");
 		}
 	}
+
+	// find memory type
+	uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties) {
+		
+		VkPhysicalDeviceMemoryProperties memProperties;
+		vkGetPhysicalDeviceMemoryProperties(physicalDevice, &memProperties);
+
+		for (uint32_t i = 0; i < memProperties.memoryTypeCount; i++) {
+			if ((typeFilter & (1 << i)) && (memProperties.memoryTypes[i].propertyFlags & properties) == properties) {
+				return i;
+			}
+		}
+
+		throw std::runtime_error("failed to find suitable memory type!");
+	}
+
+	// abstracting buffer creation
+	void createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VDeleter<VkBuffer>& buffer, VDeleter<VkDeviceMemory>& bufferMemory) {
+		VkBufferCreateInfo bufferInfo = {};
+		bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+		bufferInfo.size = size;
+		bufferInfo.usage = usage;
+		bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+
+		if (vkCreateBuffer(device, &bufferInfo, nullptr, buffer.replace()) != VK_SUCCESS) {
+			throw std::runtime_error("failed to create buffer!");
+		}
+
+		VkMemoryRequirements memRequirements;
+		vkGetBufferMemoryRequirements(device, buffer, &memRequirements);
+
+		VkMemoryAllocateInfo allocInfo = {};
+		allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+		allocInfo.allocationSize = memRequirements.size;
+		allocInfo.memoryTypeIndex = findMemoryType(memRequirements.memoryTypeBits, properties);
+
+		if (vkAllocateMemory(device, &allocInfo, nullptr, bufferMemory.replace()) != VK_SUCCESS) {
+			throw std::runtime_error("failed to allocate buffer memory!");
+		}
+
+		vkBindBufferMemory(device, buffer, bufferMemory, 0);
+	}
+
+	// copy buffer from srcBuffer to dstBuffer
+	void copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size) {
+		VkCommandBufferAllocateInfo allocInfo = {};
+		allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+		allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+		allocInfo.commandPool = commandPool;
+		allocInfo.commandBufferCount = 1;
+
+		VkCommandBuffer commandBuffer;
+		vkAllocateCommandBuffers(device, &allocInfo, &commandBuffer);
+
+		VkCommandBufferBeginInfo beginInfo = {};
+		beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+		beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+
+		vkBeginCommandBuffer(commandBuffer, &beginInfo);
+
+		VkBufferCopy copyRegion = {};
+		copyRegion.size = size;
+		vkCmdCopyBuffer(commandBuffer, srcBuffer, dstBuffer, 1, &copyRegion);
+
+		vkEndCommandBuffer(commandBuffer);
+
+		VkSubmitInfo submitInfo = {};
+		submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+		submitInfo.commandBufferCount = 1;
+		submitInfo.pCommandBuffers = &commandBuffer;
+
+		vkQueueSubmit(graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE);
+		vkQueueWaitIdle(graphicsQueue);
+
+		vkFreeCommandBuffers(device, commandPool, 1, &commandBuffer);
+	}
+
+	// index buffer
+	void createIndexBuffer() {
+		VkDeviceSize bufferSize = sizeof(indices[0]) * indices.size();
+
+		VDeleter<VkBuffer> stagingBuffer{ device, vkDestroyBuffer };
+		VDeleter<VkDeviceMemory> stagingBufferMemory{ device, vkFreeMemory };
+		createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory);
+
+		void* data;
+		vkMapMemory(device, stagingBufferMemory, 0, bufferSize, 0, &data);
+		memcpy(data, indices.data(), (size_t)bufferSize);
+		vkUnmapMemory(device, stagingBufferMemory);
+
+		createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, indexBuffer, indexBufferMemory);
+
+		copyBuffer(stagingBuffer, indexBuffer, bufferSize);
+	}
+
 };

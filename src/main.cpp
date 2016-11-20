@@ -13,6 +13,8 @@ int main() {
 	}
 	catch (const std::runtime_error& e) {
 		std::cerr << e.what() << std::endl;
+		
+		system("pause");
 		return EXIT_FAILURE;
 	}
 

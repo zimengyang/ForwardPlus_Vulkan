@@ -11,7 +11,6 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtx/hash.hpp>
 
-
 #include <iostream>
 #include <vector>
 #include <set>
@@ -21,6 +20,8 @@
 #include <chrono>
 #include <unordered_map>
 
+#define _USE_MATH_DEFINES
+#include <cmath> 
 
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
@@ -33,8 +34,9 @@
 extern const int WIDTH;
 extern const int HEIGHT;
 
-const std::string MODEL_PATH = "../src/models/chalet.obj";
-const std::string TEXTURE_PATH = "../src/models/chalet.jpg";
+const std::string MODEL_PATH = "../src/models/chalet/chalet.obj";
+const std::string TEXTURE_PATH = "../src/models/chalet/chalet.jpg";
+
 
 const std::vector<const char*> validationLayers = {
 	"VK_LAYER_LUNARG_standard_validation"
@@ -49,6 +51,14 @@ const std::vector<const char*> deviceExtensions = {
 #else
 	const bool enableValidationLayers = true;
 #endif
+
+
+// mouse control related
+glm::vec2 cursorPos;
+bool lbuttonDown;
+glm::vec2 rotAngles;
+glm::vec3 cameraPos, cameraDir;
+
 
 VkResult CreateDebugReportCallbackEXT(VkInstance instance, const VkDebugReportCallbackCreateInfoEXT* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkDebugReportCallbackEXT* pCallback) {
 	auto func = (PFN_vkCreateDebugReportCallbackEXT)vkGetInstanceProcAddr(instance, "vkCreateDebugReportCallbackEXT");
@@ -265,6 +275,15 @@ private:
 		glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
 
 		window = glfwCreateWindow(WIDTH, HEIGHT, "Vulkan", nullptr, nullptr);
+
+		// setup callback functions
+		cameraPos = glm::vec3(2.0f, 2.0f, 2.0f);
+		cameraDir = glm::normalize(-cameraPos);
+
+		glfwSetCursorPosCallback(window, cursorPosCallback);
+		glfwSetMouseButtonCallback(window, mouseButtonCallback);
+		glfwSetKeyCallback(window, keyCallback);
+		glfwSetScrollCallback(window, scrollCallback);
 	}
 
 
@@ -658,7 +677,7 @@ private:
 		rasterizer.polygonMode = VK_POLYGON_MODE_FILL;
 		rasterizer.lineWidth = 1.0f;
 		rasterizer.cullMode = VK_CULL_MODE_BACK_BIT;
-		rasterizer.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
+		rasterizer.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE; //VK_FRONT_FACE_CLOCKWISE;
 		rasterizer.depthBiasEnable = VK_FALSE;
 		rasterizer.depthBiasConstantFactor = 0.0f; // Optional
 		rasterizer.depthBiasClamp = 0.0f; // Optional
@@ -1374,8 +1393,10 @@ private:
 		float time = std::chrono::duration_cast<std::chrono::milliseconds>(currentTime - startTime).count() / 1000.0f;
 	
 		UniformBufferObject ubo = {};
-		ubo.model = glm::rotate(glm::mat4(), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-		ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+		//ubo.model = glm::rotate(glm::mat4(), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+		ubo.model = glm::rotate(glm::mat4(), rotAngles.x + glm::radians(180.0f), glm::vec3(0.0f, 0.0f, 1.0f)) * glm::rotate(glm::mat4(), -rotAngles.y, glm::vec3(0.0f, 1.0f, 0.0f));
+		//ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+		ubo.view = glm::lookAt(cameraPos, glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
 		ubo.proj = glm::perspective(glm::radians(45.0f), swapChainExtent.width / (float)swapChainExtent.height, 0.1f, 10.0f);
 		ubo.proj[1][1] *= -1;
 
@@ -1782,7 +1803,7 @@ private:
 				vertex.color = { 1.0f, 1.0f, 1.0f };
 
 				if (uniqueVertices.count(vertex) == 0) {
-					uniqueVertices[vertex] = vertices.size();
+					uniqueVertices[vertex] = (uint32_t)vertices.size();
 					vertices.push_back(vertex);
 				}
 
@@ -1792,5 +1813,49 @@ private:
 	}
 
 
+	// mouse control related
 
+	static void cursorPosCallback(GLFWwindow* window, double xPos, double yPos) {
+		//std::cout << xPos << "," << yPos << std::endl;
+		if (!lbuttonDown) {
+			return;
+		}
+		else {
+			glm::vec2 tmp(xPos, yPos);
+			rotAngles += (tmp - cursorPos) * 0.01f;
+
+			cursorPos = tmp;
+		}
+	}
+
+	static void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
+
+		if (action == GLFW_PRESS) {
+			if (button == GLFW_MOUSE_BUTTON_LEFT) {
+				double x, y;
+				glfwGetCursorPos(window, &x, &y);
+				cursorPos = glm::vec2(x, y);
+				lbuttonDown = true;
+			}
+		}
+		else if (action == GLFW_RELEASE) {
+			if (button == GLFW_MOUSE_BUTTON_LEFT) {
+				lbuttonDown = false;
+			}
+		}
+		
+	}
+
+	static void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods) {
+		if (action == GLFW_PRESS && key == GLFW_KEY_ESCAPE) {
+			glfwSetWindowShouldClose(window, GLFW_TRUE);
+		}
+	}
+
+	static void scrollCallback(GLFWwindow* window, double xoffset, double yoffset) {
+		//std::cout << xoffset << "," << yoffset << std::endl;
+		if (cameraPos.length() > FLT_EPSILON) {
+			cameraPos -= (float)yoffset * glm::normalize(cameraPos) * 0.05f;
+		}
+	}
 };

@@ -106,7 +106,7 @@
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>C:\Users\Zimeng Yang\Documents\Visual Studio 2015\Libraries\glm;C:\Users\Zimeng Yang\Documents\Visual Studio 2015\Libraries\glfw-3.2.1.bin.WIN64\include;C:\Users\Zimeng Yang\Documents\Visual Studio 2015\Libraries\stb;C:\VulkanSDK\1.0.30.0\Include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\Users\Zimeng Yang\Documents\Visual Studio 2015\Libraries\tinyobjloader;C:\Users\Zimeng Yang\Documents\Visual Studio 2015\Libraries\glm;C:\Users\Zimeng Yang\Documents\Visual Studio 2015\Libraries\glfw-3.2.1.bin.WIN64\include;C:\Users\Zimeng Yang\Documents\Visual Studio 2015\Libraries\stb;C:\VulkanSDK\1.0.30.0\Include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -144,7 +144,7 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>C:\Users\Zimeng Yang\Documents\Visual Studio 2015\Libraries\glm;C:\Users\Zimeng Yang\Documents\Visual Studio 2015\Libraries\glfw-3.2.1.bin.WIN64\include;C:\Users\Zimeng Yang\Documents\Visual Studio 2015\Libraries\stb;C:\VulkanSDK\1.0.30.0\Include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\Users\Zimeng Yang\Documents\Visual Studio 2015\Libraries\tinyobjloader;C:\Users\Zimeng Yang\Documents\Visual Studio 2015\Libraries\glm;C:\Users\Zimeng Yang\Documents\Visual Studio 2015\Libraries\glfw-3.2.1.bin.WIN64\include;C:\Users\Zimeng Yang\Documents\Visual Studio 2015\Libraries\stb;C:\VulkanSDK\1.0.30.0\Include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>

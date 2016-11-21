@@ -55,10 +55,11 @@ const std::vector<const char*> deviceExtensions = {
 
 // mouse control related
 glm::vec2 cursorPos;
-bool lbuttonDown;
-glm::vec2 rotAngles;
-glm::vec3 cameraPos, cameraDir;
+bool lbuttonDown, rbuttonDown;
+glm::vec2 modelRotAngles; // for model rotation
 
+glm::vec3 cameraPos;
+glm::vec2 cameraRotAngles; // for camera rotation
 
 VkResult CreateDebugReportCallbackEXT(VkInstance instance, const VkDebugReportCallbackCreateInfoEXT* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkDebugReportCallbackEXT* pCallback) {
 	auto func = (PFN_vkCreateDebugReportCallbackEXT)vkGetInstanceProcAddr(instance, "vkCreateDebugReportCallbackEXT");
@@ -294,7 +295,6 @@ private:
 
 		// setup callback functions
 		cameraPos = glm::vec3(2.0f, 2.0f, 2.0f);
-		cameraDir = glm::normalize(-cameraPos);
 
 		glfwSetCursorPosCallback(window, cursorPosCallback);
 		glfwSetMouseButtonCallback(window, mouseButtonCallback);
@@ -1470,10 +1470,18 @@ private:
 		float time = std::chrono::duration_cast<std::chrono::milliseconds>(currentTime - startTime).count() / 1000.0f;
 	
 		UniformBufferObject ubo = {};
+
+		// update model rotations
 		//ubo.model = glm::rotate(glm::mat4(), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-		ubo.model = glm::rotate(glm::mat4(), rotAngles.x , glm::vec3(0.0f, 0.0f, 1.0f)) * glm::rotate(glm::mat4(), rotAngles.y, glm::vec3(0.0f, 1.0f, 0.0f));
-		//ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-		ubo.view = glm::lookAt(cameraPos, glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+		ubo.model = glm::rotate(glm::mat4(), modelRotAngles.x , glm::vec3(0.0f, 0.0f, 1.0f)) * glm::rotate(glm::mat4(), modelRotAngles.y, glm::vec3(0.0f, 1.0f, 0.0f));
+	
+		// update camera rotations
+		glm::vec4 rotCameraPos(cameraPos, 1.0f);
+		rotCameraPos = glm::rotate(glm::mat4(), cameraRotAngles.x, glm::vec3(0.0f, 0.0f, 1.0f)) * glm::rotate(glm::mat4(), cameraRotAngles.y, glm::vec3(0.0f, 1.0f, 0.0f)) * rotCameraPos;
+		//cameraPos = glm::vec3(rotCameraPos);
+		ubo.view = glm::lookAt(glm::vec3(rotCameraPos), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+
+		// projection matrix
 		ubo.proj = glm::perspective(glm::radians(45.0f), swapChainExtent.width / (float)swapChainExtent.height, 0.01f, 100.0f);
 		ubo.proj[1][1] *= -1;
 
@@ -1933,31 +1941,46 @@ private:
 	// mouse control related
 	static void cursorPosCallback(GLFWwindow* window, double xPos, double yPos) {
 		//std::cout << xPos << "," << yPos << std::endl;
-		if (!lbuttonDown) {
+		if (!lbuttonDown && !rbuttonDown) {
 			return;
 		}
-		else {
+		else if (lbuttonDown) {
 			glm::vec2 tmp(xPos, yPos);
-			rotAngles += (tmp - cursorPos) * 0.01f;
+			modelRotAngles += (tmp - cursorPos) * 0.01f;
 
 			cursorPos = tmp;
 		}
+		else if (rbuttonDown) {
+			glm::vec2 tmp(xPos, yPos);
+			cameraRotAngles += (tmp - cursorPos) * 0.01f;
+
+			cursorPos = tmp;
+		}
+			
 	}
 
 	static void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
 
 		if (action == GLFW_PRESS) {
+			double x, y;
+			glfwGetCursorPos(window, &x, &y);
+			cursorPos = glm::vec2(x, y);
+
 			if (button == GLFW_MOUSE_BUTTON_LEFT) {
-				double x, y;
-				glfwGetCursorPos(window, &x, &y);
-				cursorPos = glm::vec2(x, y);
 				lbuttonDown = true;
+			}
+			else if (button == GLFW_MOUSE_BUTTON_RIGHT) {
+				rbuttonDown = true;
 			}
 		}
 		else if (action == GLFW_RELEASE) {
 			if (button == GLFW_MOUSE_BUTTON_LEFT) {
 				lbuttonDown = false;
 			}
+			else if (button == GLFW_MOUSE_BUTTON_RIGHT) {
+				rbuttonDown = false;
+			}
+			
 		}
 		
 	}

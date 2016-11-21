@@ -10,7 +10,6 @@ lib/
 *.userosscache
 *.sln.docstates
 *.opendb
-*.vcxproj
 *.db
 
 

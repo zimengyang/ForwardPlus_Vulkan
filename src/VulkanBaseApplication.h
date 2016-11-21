@@ -35,7 +35,10 @@ extern const int WIDTH;
 extern const int HEIGHT;
 
 const std::string MODEL_PATH = "../src/models/chalet/chalet.obj";
-const std::string TEXTURE_PATH = "../src/models/chalet/chalet.jpg";
+
+const std::string TEXTURE_PATH1 = "../src/models/chalet/chalet.jpg";
+const std::string TEXTURE_PATH2 = "../src/textures/bald_eagle_1280.jpg";
+const std::vector<std::string> TEXTURES_PATH = { TEXTURE_PATH1 ,TEXTURE_PATH2 };
 
 
 const std::vector<const char*> validationLayers = {
@@ -218,6 +221,7 @@ private:
 	// graphics pipeline(s) !
 	VDeleter<VkPipeline> graphicsPipeline{ device, vkDestroyPipeline };
 	VDeleter<VkPipeline> graphicsPipeline_axis{ device, vkDestroyPipeline };
+	VDeleter<VkPipeline> graphicsPipeline_quad{ device, vkDestroyPipeline };
 
 	// frame buffers
 	std::vector<VDeleter<VkFramebuffer>> swapChainFramebuffers;
@@ -244,6 +248,7 @@ private:
 	VDeleter<VkBuffer> indexBuffer{ device, vkDestroyBuffer };
 	VDeleter<VkDeviceMemory> indexBufferMemory{ device, vkFreeMemory };
 
+
 	// vertices and indices for axis
 	std::vector<Vertex> vertices_axis;
 	std::vector<uint32_t> indices_axis;
@@ -257,6 +262,19 @@ private:
 	VDeleter<VkDeviceMemory> indexBufferMemory_axis{ device, vkFreeMemory };
 
 
+	// vertices and indices for texutre quad
+	std::vector<Vertex> vertices_quad;
+	std::vector<uint32_t> indices_quad;
+
+	// vertex buffer
+	VDeleter<VkBuffer> vertexBuffer_quad{ device, vkDestroyBuffer };
+	VDeleter<VkDeviceMemory> vertexBufferMemory_quad{ device, vkFreeMemory };
+
+	// index buffer
+	VDeleter<VkBuffer> indexBuffer_quad{ device, vkDestroyBuffer };
+	VDeleter<VkDeviceMemory> indexBufferMemory_quad{ device, vkFreeMemory };
+
+
 	// uniform buffer 
 	VDeleter<VkBuffer> uniformStagingBuffer{ device, vkDestroyBuffer };
 	VDeleter<VkDeviceMemory> uniformStagingBufferMemory{ device, vkFreeMemory };
@@ -268,10 +286,21 @@ private:
 	VkDescriptorSet descriptorSet;
 
 	// texture 
-	VDeleter<VkImage> textureImage{ device, vkDestroyImage };
-	VDeleter<VkDeviceMemory> textureImageMemory{ device, vkFreeMemory };
-	VDeleter<VkImageView> textureImageView{ device, vkDestroyImageView };
-	VDeleter<VkSampler> textureSampler{ device, vkDestroySampler };
+	std::vector<VDeleter<VkImage>> textureImages{ 
+		VDeleter<VkImage> { device, vkDestroyImage},
+		VDeleter<VkImage> { device, vkDestroyImage} };
+
+	std::vector<VDeleter<VkDeviceMemory>> textureImageMemorys{
+		VDeleter<VkDeviceMemory> { device, vkFreeMemory },
+		VDeleter<VkDeviceMemory> { device, vkFreeMemory } };
+
+	std::vector<VDeleter<VkImageView>> textureImageViews{
+		VDeleter<VkImageView> { device, vkDestroyImageView },
+		VDeleter<VkImageView> { device, vkDestroyImageView } };
+
+	std::vector<VDeleter<VkSampler>> textureSamplers{
+		VDeleter<VkSampler> { device, vkDestroySampler },
+		VDeleter<VkSampler> { device, vkDestroySampler } };
 
 	// depth image
 	VDeleter<VkImage> depthImage{ device, vkDestroyImage };
@@ -294,7 +323,7 @@ private:
 		window = glfwCreateWindow(WIDTH, HEIGHT, "Vulkan", nullptr, nullptr);
 
 		// setup callback functions
-		cameraPos = glm::vec3(2.0f, 2.0f, 2.0f);
+		cameraPos = glm::vec3(2.5f, 2.5f, 2.5f);
 
 		glfwSetCursorPosCallback(window, cursorPosCallback);
 		glfwSetMouseButtonCallback(window, mouseButtonCallback);
@@ -370,15 +399,22 @@ private:
 		createCommandPool();
 		createDepthResources();
 		createFramebuffers();
-		createTextureImage();
+		prepareTextures();
+		/*createTextureImage();
 		createTextureImageView();
-		createTextureSampler();
+		createTextureSampler();*/
 		loadModel();
 		loadAxisInfo();
+		loadTextureQuad();
+
+		// vertices and indices buffer
 		createVertexBuffer(vertices, vertexBuffer, vertexBufferMemory);
 		createIndexBuffer(indices, indexBuffer, indexBufferMemory);
 		createVertexBuffer(vertices_axis, vertexBuffer_axis, vertexBufferMemory_axis);
 		createIndexBuffer(indices_axis, indexBuffer_axis, indexBufferMemory_axis);
+		createVertexBuffer(vertices_quad, vertexBuffer_quad, vertexBufferMemory_quad);
+		createIndexBuffer(indices_quad, indexBuffer_quad, indexBufferMemory_quad);
+
 		createUniformBuffer();
 		createDescriptorPool();
 		createDescriptorSet();
@@ -608,11 +644,12 @@ private:
 #pragma region Vertex and Fragment Shader Stages
 		// vertex and fragment shader stages
 
-		shaderModules.resize(4);
+		shaderModules.resize(5);
 		VkPipelineShaderStageCreateInfo vertShaderStageInfo = loadShader("../src/shaders/triangle.vert.spv", VK_SHADER_STAGE_VERTEX_BIT, 0);
 		VkPipelineShaderStageCreateInfo fragShaderStageInfo = loadShader("../src/shaders/triangle.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT, 1);
 		VkPipelineShaderStageCreateInfo vertShaderStageInfo_axis = loadShader("../src/shaders/axis.vert.spv", VK_SHADER_STAGE_VERTEX_BIT, 2);
 		VkPipelineShaderStageCreateInfo fragShaderStageInfo_axis = loadShader("../src/shaders/axis.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT, 3);
+		VkPipelineShaderStageCreateInfo fragShaderStageInfo_quad = loadShader("../src/shaders/quad.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT, 4);
 
 
 		//// load shader
@@ -819,14 +856,25 @@ private:
 			throw std::runtime_error("failed to create graphics pipeline!");
 		}
 
+		// create graphics pipeline for quad render
+		// input assembly state for texture quad, without culling
+		shaderStages[1] = fragShaderStageInfo_quad;
+		rasterizer.cullMode = VK_CULL_MODE_NONE;
+		if (vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, graphicsPipeline_quad.replace()) != VK_SUCCESS) {
+			throw std::runtime_error("failed to create graphics pipeline!");
+		}
+
 		// create graphics pipeline for line list
 		// input assembly state for axis (lines)
 		inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_LINE_LIST;
 		shaderStages[0] = vertShaderStageInfo_axis;
 		shaderStages[1] = fragShaderStageInfo_axis;
+		rasterizer.cullMode = VK_CULL_MODE_BACK_BIT;
 		if (vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, graphicsPipeline_axis.replace()) != VK_SUCCESS) {
 			throw std::runtime_error("failed to create graphics pipeline!");
 		}
+		
+
 	}
 
 	void createFramebuffers() {
@@ -921,6 +969,22 @@ private:
 				
 				//vkCmdDraw(commandBuffers[i], vertices.size(), 1, 0, 0);
 				vkCmdDrawIndexed(commandBuffers[i], (uint32_t)indices.size(), 1, 0, 0, 0);
+
+
+				// draw quad here
+				vkCmdBindPipeline(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline_quad);
+
+				// binding the vertex buffer
+				VkBuffer vertexBuffers_quad[] = { vertexBuffer_quad };
+				VkDeviceSize offsets_quad[] = { 0 };
+				vkCmdBindVertexBuffers(commandBuffers[i], 0, 1, vertexBuffers_quad, offsets_quad);
+
+				vkCmdBindIndexBuffer(commandBuffers[i], indexBuffer_quad, 0, VK_INDEX_TYPE_UINT32);
+
+				vkCmdBindDescriptorSets(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSet, 0, nullptr);
+
+				//vkCmdDraw(commandBuffers[i], vertices.size(), 1, 0, 0);
+				vkCmdDrawIndexed(commandBuffers[i], (uint32_t)indices_quad.size(), 1, 0, 0, 0);
 
 
 				// draw axis here (line list)
@@ -1442,7 +1506,14 @@ private:
 		samplerLayoutBinding.pImmutableSamplers = nullptr;
 		samplerLayoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
 
-		std::array<VkDescriptorSetLayoutBinding, 2> bindings = { uboLayoutBinding, samplerLayoutBinding };
+		VkDescriptorSetLayoutBinding samplerLayoutBinding2 = {};
+		samplerLayoutBinding2.binding = 2;
+		samplerLayoutBinding2.descriptorCount = 1;
+		samplerLayoutBinding2.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+		samplerLayoutBinding2.pImmutableSamplers = nullptr;
+		samplerLayoutBinding2.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+
+		std::array<VkDescriptorSetLayoutBinding, 3> bindings = { uboLayoutBinding, samplerLayoutBinding, samplerLayoutBinding2 };
 		
 		VkDescriptorSetLayoutCreateInfo layoutInfo = {};
 		layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
@@ -1476,8 +1547,8 @@ private:
 		ubo.model = glm::rotate(glm::mat4(), modelRotAngles.x , glm::vec3(0.0f, 0.0f, 1.0f)) * glm::rotate(glm::mat4(), modelRotAngles.y, glm::vec3(0.0f, 1.0f, 0.0f));
 	
 		// update camera rotations
-		glm::vec4 rotCameraPos(cameraPos, 1.0f);
-		rotCameraPos = glm::rotate(glm::mat4(), cameraRotAngles.x, glm::vec3(0.0f, 0.0f, 1.0f)) * glm::rotate(glm::mat4(), cameraRotAngles.y, glm::vec3(0.0f, 1.0f, 0.0f)) * rotCameraPos;
+		glm::vec4 rotCameraPos = glm::vec4(cameraPos, 1.0f);
+		rotCameraPos = glm::rotate(glm::mat4(), cameraRotAngles.x, glm::vec3(0.0f, 0.0f, 1.0f)) * rotCameraPos;
 		//cameraPos = glm::vec3(rotCameraPos);
 		ubo.view = glm::lookAt(glm::vec3(rotCameraPos), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
 
@@ -1496,11 +1567,13 @@ private:
 
 	void createDescriptorPool() {
 
-		std::array<VkDescriptorPoolSize, 2> poolSizes = {};
+		std::array<VkDescriptorPoolSize, 3> poolSizes = {};
 		poolSizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
 		poolSizes[0].descriptorCount = 1;
 		poolSizes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-		poolSizes[1].descriptorCount = 1;
+		poolSizes[1].descriptorCount = 1; 
+		poolSizes[2].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+		poolSizes[2].descriptorCount = 1;
 
 		VkDescriptorPoolCreateInfo poolInfo = {};
 		poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
@@ -1531,12 +1604,16 @@ private:
 		bufferInfo.offset = 0;
 		bufferInfo.range = sizeof(UniformBufferObject);
 
-		VkDescriptorImageInfo imageInfo = {};
-		imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-		imageInfo.imageView = textureImageView;
-		imageInfo.sampler = textureSampler;
+		std::array<VkDescriptorImageInfo, 2> imageInfo = {};
+		imageInfo[0].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+		imageInfo[0].imageView = textureImageViews[0];
+		imageInfo[0].sampler = textureSamplers[0]; 
+		
+		imageInfo[1].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+		imageInfo[1].imageView = textureImageViews[1];
+		imageInfo[1].sampler = textureSamplers[1];
 
-		std::array<VkWriteDescriptorSet, 2> descriptorWrites = {};
+		std::array<VkWriteDescriptorSet, 3> descriptorWrites = {};
 
 		descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
 		descriptorWrites[0].dstSet = descriptorSet;
@@ -1552,16 +1629,24 @@ private:
 		descriptorWrites[1].dstArrayElement = 0;
 		descriptorWrites[1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
 		descriptorWrites[1].descriptorCount = 1;
-		descriptorWrites[1].pImageInfo = &imageInfo;
+		descriptorWrites[1].pImageInfo = &imageInfo[0];
+
+		descriptorWrites[2].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+		descriptorWrites[2].dstSet = descriptorSet;
+		descriptorWrites[2].dstBinding = 2;
+		descriptorWrites[2].dstArrayElement = 0;
+		descriptorWrites[2].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+		descriptorWrites[2].descriptorCount = 1;
+		descriptorWrites[2].pImageInfo = &imageInfo[1];
 
 		vkUpdateDescriptorSets(device, (uint32_t)descriptorWrites.size(), descriptorWrites.data(), 0, nullptr);
 	}
 
 
-	void createTextureImage() {
+	void createTextureImage(const std::string& texFilename, VDeleter<VkImage> & texImage, VDeleter<VkDeviceMemory> & texImageMemory) {
 
 		int texWidth, texHeight, texChannels;
-		stbi_uc* pixels = stbi_load(TEXTURE_PATH.c_str(), &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
+		stbi_uc* pixels = stbi_load(texFilename.c_str(), &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
 		VkDeviceSize imageSize = texWidth * texHeight * 4;
 
 		if (!pixels) {
@@ -1589,13 +1674,13 @@ private:
 			VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_TILING_OPTIMAL, 
 			VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, 
 			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, 
-			textureImage, textureImageMemory);
+			texImage, texImageMemory);
 
 		transitionImageLayout(stagingImage, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_LAYOUT_PREINITIALIZED, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
-		transitionImageLayout(textureImage, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_LAYOUT_PREINITIALIZED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-		copyImage(stagingImage, textureImage, texWidth, texHeight);
+		transitionImageLayout(texImage, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_LAYOUT_PREINITIALIZED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+		copyImage(stagingImage, texImage, texWidth, texHeight);
 
-		transitionImageLayout(textureImage, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+		transitionImageLayout(texImage, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 	}
 
 
@@ -1782,12 +1867,12 @@ private:
 	}
 
 
-	void createTextureImageView() {
+	void createTextureImageView(VDeleter<VkImage> & textureImage, VDeleter<VkImageView>& textureImageView) {
 		createImageView(textureImage, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_ASPECT_COLOR_BIT, textureImageView);
 	}
 
 
-	void createTextureSampler() {
+	void createTextureSampler(VDeleter<VkSampler> & textureSampler) {
 		VkSamplerCreateInfo samplerInfo = {};
 		samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
 		samplerInfo.magFilter = VK_FILTER_LINEAR;
@@ -1904,7 +1989,7 @@ private:
 		const float axisLen = 1.5f;
 		const float axisDelta = 0.1f;
 		vertices_axis = {
-		
+
 			{ { 0.0f, 0.0f, 0.0f },{ 1.0f, 0.0f, 0.0f },{ 0.0f, 0.0f } },
 			{ { axisLen, 0.0f, 0.0f },{ 1.0f, 0.0f, 0.0f },{ 0.0f, 0.0f } },
 			{ { axisLen - axisDelta, -axisDelta / 2.0f, 0.0f },{ 1.0f, 0.0f, 0.0f },{ 0.0f, 0.0f } },
@@ -1920,7 +2005,7 @@ private:
 			{ { 0.0f, -axisDelta / 2.0f, axisLen - axisDelta },{ 0.0f, 0.0f, 1.0f },{ 0.0f, 0.0f } },
 			{ { 0.0f, axisDelta / 2.0f, axisLen - axisDelta },{ 0.0f, 0.0f, 1.0f },{ 0.0f, 0.0f } }
 		};
-		
+
 		indices_axis = {
 			0, 1,
 			1, 2,
@@ -1933,10 +2018,45 @@ private:
 			8, 9,
 			9, 10,
 			9, 11
+		}; 
+
+	}
+	
+	
+	// load texture quad info 
+	void loadTextureQuad() {
+
+		const float x = 1.5f;
+		const float axisDelta = 0.1f;
+		vertices_quad = {
+		
+			{ { 0, 0.25f, 1.5f },{ 1.0f, 0.0f, 0.0f },{ 0.0f, 0.0f } },
+			{ { 0, -0.25f, 1.50f },{ 0.0f, 1.0f, 0.0f },{ 1.0f, 0.0f } },
+			{ { 0, -0.25f, 1.0f },{ 0.0f, 0.0f, 1.0f },{ 1.0f, 1.0f } },
+			{ { 0, 0.25f, 1.0f },{ 1.0f, 1.0f, 1.0f },{ 0.0f, 1.0f } },
+			
+		};
+		
+		indices_quad = {
+			0, 1, 2, 2, 3, 0,
 		};
 
 	}
 
+	
+	void prepareTextures()
+	{
+		/*createTextureImage();
+		createTextureImageView();
+		createTextureSampler();*/
+
+		for (int i = 0; i < textureImages.size(); ++i) {
+			createTextureImage(TEXTURES_PATH[i], textureImages[i], textureImageMemorys[i]);
+			createTextureImageView(textureImages[i], textureImageViews[i]);
+			createTextureSampler(textureSamplers[i]);
+		}
+
+	}
 
 	// mouse control related
 	static void cursorPosCallback(GLFWwindow* window, double xPos, double yPos) {

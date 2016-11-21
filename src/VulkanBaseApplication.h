@@ -608,10 +608,11 @@ private:
 #pragma region Vertex and Fragment Shader Stages
 		// vertex and fragment shader stages
 
-		shaderModules.resize(3);
+		shaderModules.resize(4);
 		VkPipelineShaderStageCreateInfo vertShaderStageInfo = loadShader("../src/shaders/triangle.vert.spv", VK_SHADER_STAGE_VERTEX_BIT, 0);
 		VkPipelineShaderStageCreateInfo fragShaderStageInfo = loadShader("../src/shaders/triangle.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT, 1);
-		VkPipelineShaderStageCreateInfo fragShaderStageInfo_axis = loadShader("../src/shaders/axis.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT, 2);
+		VkPipelineShaderStageCreateInfo vertShaderStageInfo_axis = loadShader("../src/shaders/axis.vert.spv", VK_SHADER_STAGE_VERTEX_BIT, 2);
+		VkPipelineShaderStageCreateInfo fragShaderStageInfo_axis = loadShader("../src/shaders/axis.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT, 3);
 
 
 		//// load shader
@@ -821,6 +822,7 @@ private:
 		// create graphics pipeline for line list
 		// input assembly state for axis (lines)
 		inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_LINE_LIST;
+		shaderStages[0] = vertShaderStageInfo_axis;
 		shaderStages[1] = fragShaderStageInfo_axis;
 		if (vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, graphicsPipeline_axis.replace()) != VK_SUCCESS) {
 			throw std::runtime_error("failed to create graphics pipeline!");
@@ -1469,10 +1471,10 @@ private:
 	
 		UniformBufferObject ubo = {};
 		//ubo.model = glm::rotate(glm::mat4(), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-		ubo.model = glm::rotate(glm::mat4(), rotAngles.x + glm::radians(180.0f), glm::vec3(0.0f, 0.0f, 1.0f)) * glm::rotate(glm::mat4(), -rotAngles.y, glm::vec3(0.0f, 1.0f, 0.0f));
+		ubo.model = glm::rotate(glm::mat4(), rotAngles.x , glm::vec3(0.0f, 0.0f, 1.0f)) * glm::rotate(glm::mat4(), rotAngles.y, glm::vec3(0.0f, 1.0f, 0.0f));
 		//ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
 		ubo.view = glm::lookAt(cameraPos, glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-		ubo.proj = glm::perspective(glm::radians(45.0f), swapChainExtent.width / (float)swapChainExtent.height, 0.1f, 10.0f);
+		ubo.proj = glm::perspective(glm::radians(45.0f), swapChainExtent.width / (float)swapChainExtent.height, 0.01f, 100.0f);
 		ubo.proj[1][1] *= -1;
 
 
@@ -1890,22 +1892,25 @@ private:
 
 	// load axis info
 	void loadAxisInfo() {
+
+		const float axisLen = 1.5f;
+		const float axisDelta = 0.1f;
 		vertices_axis = {
 		
 			{ { 0.0f, 0.0f, 0.0f },{ 1.0f, 0.0f, 0.0f },{ 0.0f, 0.0f } },
-			{ { 2.0f, 0.0f, 0.0f },{ 1.0f, 0.0f, 0.0f },{ 0.0f, 0.0f } },
-			{ { 1.9f, -0.1f, 0.0f },{ 1.0f, 0.0f, 0.0f },{ 0.0f, 0.0f } },
-			{ { 1.9f, 0.1f, 0.0f },{ 1.0f, 0.0f, 0.0f },{ 0.0f, 0.0f } },
+			{ { axisLen, 0.0f, 0.0f },{ 1.0f, 0.0f, 0.0f },{ 0.0f, 0.0f } },
+			{ { axisLen - axisDelta, -axisDelta / 2.0f, 0.0f },{ 1.0f, 0.0f, 0.0f },{ 0.0f, 0.0f } },
+			{ { axisLen - axisDelta, axisDelta / 2.0f, 0.0f },{ 1.0f, 0.0f, 0.0f },{ 0.0f, 0.0f } },
 
 			{ { 0.0f, 0.0f, 0.0f },{ 0.0f, 1.0f, 0.0f },{ 0.0f, 0.0f } },
-			{ { 0.0f, 2.0f, 0.0f },{ 0.0f, 1.0f, 0.0f },{ 0.0f, 0.0f } },
-			{ { -0.1f, 1.9f, 0.0f },{ 0.0f, 1.0f, 0.0f },{ 0.0f, 0.0f } },
-			{ { 0.1f, 1.9f, 0.0f },{ 0.0f, 1.0f, 0.0f },{ 0.0f, 0.0f } },
+			{ { 0.0f, axisLen, 0.0f },{ 0.0f, 1.0f, 0.0f },{ 0.0f, 0.0f } },
+			{ { -axisDelta / 2.0f, axisLen - axisDelta, 0.0f },{ 0.0f, 1.0f, 0.0f },{ 0.0f, 0.0f } },
+			{ { axisDelta / 2.0f, axisLen - axisDelta, 0.0f },{ 0.0f, 1.0f, 0.0f },{ 0.0f, 0.0f } },
 
 			{ { 0.0f, 0.0f, 0.0f },{ 0.0f, 0.0f, 1.0f },{ 0.0f, 0.0f } },
-			{ { 0.0f, 0.0f, 2.0f },{ 0.0f, 0.0f, 1.0f },{ 0.0f, 0.0f } },
-			{ { 0.0f, -0.1f, 1.9f },{ 0.0f, 0.0f, 1.0f },{ 0.0f, 0.0f } },
-			{ { 0.0f, 0.1f, 1.9f },{ 0.0f, 0.0f, 1.0f },{ 0.0f, 0.0f } }
+			{ { 0.0f, 0.0f, axisLen },{ 0.0f, 0.0f, 1.0f },{ 0.0f, 0.0f } },
+			{ { 0.0f, -axisDelta / 2.0f, axisLen - axisDelta },{ 0.0f, 0.0f, 1.0f },{ 0.0f, 0.0f } },
+			{ { 0.0f, axisDelta / 2.0f, axisLen - axisDelta },{ 0.0f, 0.0f, 1.0f },{ 0.0f, 0.0f } }
 		};
 		
 		indices_axis = {

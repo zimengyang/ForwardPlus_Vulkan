@@ -23,7 +23,7 @@ The screen is divided into a number of square tiles, for example, 16 * 16 screen
 
 ![Tile Frustum](./img/readme/Tile-Frustum1.png)
 
-The [above image][1] shows that the camera’s position (eye) is the origin of the frustum and the corner points of the tile denote the frustum corners. With this information, we can compute the planes of the tile frustum.
+The above image shows that the camera’s position (eye) is the origin of the frustum and the corner points of the tile denote the frustum corners. With this information, we can compute the planes of the tile frustum.
 
 ### Grid Frustums Compute Shader
 
@@ -59,9 +59,8 @@ Basic algorithm for light culling:
 
 
 # References:
-
-[1]: https://vulkan-tutorial.com/ "Vulkan Tutorial"
-[2]: https://github.com/SaschaWillems/Vulkan "Vulkan Examples"
-[3]: http://www.3dgep.com/forward-plus/ "Forward Plus Rendering"
+1. [Vulkan Tutorial](https://vulkan-tutorial.com/)
+2. [Vulkan Examples](https://github.com/SaschaWillems/Vulkan)
+3. [Forward Plus Rendering](http://www.3dgep.com/forward-plus/) 
 
 

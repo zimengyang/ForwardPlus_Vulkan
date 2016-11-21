@@ -214,8 +214,9 @@ private:
 	// render pass
 	VDeleter<VkRenderPass> renderPass{ device, vkDestroyRenderPass };
 
-	// graphics pipeline !
+	// graphics pipeline(s) !
 	VDeleter<VkPipeline> graphicsPipeline{ device, vkDestroyPipeline };
+	VDeleter<VkPipeline> graphicsPipeline_axis{ device, vkDestroyPipeline };
 
 	// frame buffers
 	std::vector<VDeleter<VkFramebuffer>> swapChainFramebuffers;
@@ -242,6 +243,19 @@ private:
 	VDeleter<VkBuffer> indexBuffer{ device, vkDestroyBuffer };
 	VDeleter<VkDeviceMemory> indexBufferMemory{ device, vkFreeMemory };
 
+	// vertices and indices for axis
+	std::vector<Vertex> vertices_axis;
+	std::vector<uint32_t> indices_axis;
+
+	// vertex buffer for axis
+	VDeleter<VkBuffer> vertexBuffer_axis{ device, vkDestroyBuffer };
+	VDeleter<VkDeviceMemory> vertexBufferMemory_axis{ device, vkFreeMemory };
+
+	// index buffer for axis 
+	VDeleter<VkBuffer> indexBuffer_axis{ device, vkDestroyBuffer };
+	VDeleter<VkDeviceMemory> indexBufferMemory_axis{ device, vkFreeMemory };
+
+
 	// uniform buffer 
 	VDeleter<VkBuffer> uniformStagingBuffer{ device, vkDestroyBuffer };
 	VDeleter<VkDeviceMemory> uniformStagingBufferMemory{ device, vkFreeMemory };
@@ -263,6 +277,8 @@ private:
 	VDeleter<VkDeviceMemory> depthImageMemory{ device, vkFreeMemory };
 	VDeleter<VkImageView> depthImageView{ device, vkDestroyImageView };
 
+	// shader modules 
+	std::vector<VDeleter<VkShaderModule>> shaderModules;
 
 
 	/************************************************************/
@@ -358,8 +374,11 @@ private:
 		createTextureImageView();
 		createTextureSampler();
 		loadModel();
-		createVertexBuffer();
-		createIndexBuffer();
+		loadAxisInfo();
+		createVertexBuffer(vertices, vertexBuffer, vertexBufferMemory);
+		createIndexBuffer(indices, indexBuffer, indexBufferMemory);
+		createVertexBuffer(vertices_axis, vertexBuffer_axis, vertexBufferMemory_axis);
+		createIndexBuffer(indices_axis, indexBuffer_axis, indexBufferMemory_axis);
 		createUniformBuffer();
 		createDescriptorPool();
 		createDescriptorSet();
@@ -589,31 +608,37 @@ private:
 #pragma region Vertex and Fragment Shader Stages
 		// vertex and fragment shader stages
 
-		// load shader
-		auto triangleVertShaderCode = readFile("../src/shaders/triangle.vert.spv");
-		auto triangleFragShaderCode = readFile("../src/shaders/triangle.frag.spv");
-		//std::cout << "vert shader size = " << triangleVertShaderCode.size() << ", "
-		//	      << "frag shader size = " << triangleFragShaderCode.size() << std::endl;
+		shaderModules.resize(3);
+		VkPipelineShaderStageCreateInfo vertShaderStageInfo = loadShader("../src/shaders/triangle.vert.spv", VK_SHADER_STAGE_VERTEX_BIT, 0);
+		VkPipelineShaderStageCreateInfo fragShaderStageInfo = loadShader("../src/shaders/triangle.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT, 1);
+		VkPipelineShaderStageCreateInfo fragShaderStageInfo_axis = loadShader("../src/shaders/axis.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT, 2);
 
-		// create shader module
-		VDeleter<VkShaderModule> vertShaderModule{ device, vkDestroyShaderModule };
-		VDeleter<VkShaderModule> fragShaderModule{ device, vkDestroyShaderModule };
 
-		createShaderModule(triangleVertShaderCode, vertShaderModule);
-		createShaderModule(triangleFragShaderCode, fragShaderModule);
+		//// load shader
+		//auto triangleVertShaderCode = readFile("../src/shaders/triangle.vert.spv");
+		//auto triangleFragShaderCode = readFile("../src/shaders/triangle.frag.spv");
+		////std::cout << "vert shader size = " << triangleVertShaderCode.size() << ", "
+		////	      << "frag shader size = " << triangleFragShaderCode.size() << std::endl;
 
-		// create pipeline shader stages vert and frag
-		VkPipelineShaderStageCreateInfo vertShaderStageInfo = {};
-		vertShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-		vertShaderStageInfo.stage = VK_SHADER_STAGE_VERTEX_BIT;
-		vertShaderStageInfo.module = vertShaderModule;
-		vertShaderStageInfo.pName = "main";
+		//// create shader module
+		//VDeleter<VkShaderModule> vertShaderModule{ device, vkDestroyShaderModule };
+		//VDeleter<VkShaderModule> fragShaderModule{ device, vkDestroyShaderModule };
 
-		VkPipelineShaderStageCreateInfo fragShaderStageInfo = {};
-		fragShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-		fragShaderStageInfo.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
-		fragShaderStageInfo.module = fragShaderModule;
-		fragShaderStageInfo.pName = "main";
+		//createShaderModule(triangleVertShaderCode, vertShaderModule);
+		//createShaderModule(triangleFragShaderCode, fragShaderModule);
+
+		//// create pipeline shader stages vert and frag
+		//VkPipelineShaderStageCreateInfo vertShaderStageInfo = {};
+		//vertShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+		//vertShaderStageInfo.stage = VK_SHADER_STAGE_VERTEX_BIT;
+		//vertShaderStageInfo.module = vertShaderModule;
+		//vertShaderStageInfo.pName = "main";
+
+		//VkPipelineShaderStageCreateInfo fragShaderStageInfo = {};
+		//fragShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+		//fragShaderStageInfo.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
+		//fragShaderStageInfo.module = fragShaderModule;
+		//fragShaderStageInfo.pName = "main";
 
 		VkPipelineShaderStageCreateInfo shaderStages[] = { vertShaderStageInfo, fragShaderStageInfo };
 #pragma endregion
@@ -627,9 +652,9 @@ private:
 		VkPipelineVertexInputStateCreateInfo vertexInputInfo = {};
 		vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
 		vertexInputInfo.vertexBindingDescriptionCount = 1;
-		vertexInputInfo.pVertexBindingDescriptions = &bindingDescription; // Optional
+		vertexInputInfo.pVertexBindingDescriptions = &bindingDescription; 
 		vertexInputInfo.vertexAttributeDescriptionCount = (uint32_t)attributeDescriptions.size();
-		vertexInputInfo.pVertexAttributeDescriptions = attributeDescriptions.data(); // Optional
+		vertexInputInfo.pVertexAttributeDescriptions = attributeDescriptions.data();
 #pragma endregion
 
 
@@ -787,11 +812,19 @@ private:
 		pipelineInfo.basePipelineIndex = -1; // Optional
 #pragma endregion
 
+		
 		// create graphics pipeline finally!
 		if (vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, graphicsPipeline.replace()) != VK_SUCCESS) {
 			throw std::runtime_error("failed to create graphics pipeline!");
 		}
 
+		// create graphics pipeline for line list
+		// input assembly state for axis (lines)
+		inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_LINE_LIST;
+		shaderStages[1] = fragShaderStageInfo_axis;
+		if (vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, graphicsPipeline_axis.replace()) != VK_SUCCESS) {
+			throw std::runtime_error("failed to create graphics pipeline!");
+		}
 	}
 
 	void createFramebuffers() {
@@ -872,6 +905,7 @@ private:
 			// render pass begin
 			vkCmdBeginRenderPass(commandBuffers[i], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 
+				// draw model here (triangle list)
 				vkCmdBindPipeline(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
 
 				// binding the vertex buffer
@@ -885,6 +919,22 @@ private:
 				
 				//vkCmdDraw(commandBuffers[i], vertices.size(), 1, 0, 0);
 				vkCmdDrawIndexed(commandBuffers[i], (uint32_t)indices.size(), 1, 0, 0, 0);
+
+
+				// draw axis here (line list)
+				vkCmdBindPipeline(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline_axis);
+				// binding the vertex buffer for axis
+				VkBuffer vertexBuffers_axis[] = { vertexBuffer_axis };
+				VkDeviceSize offsets_axis[] = { 0 };
+				vkCmdBindVertexBuffers(commandBuffers[i], 0, 1, vertexBuffers_axis, offsets_axis);
+
+				vkCmdBindIndexBuffer(commandBuffers[i], indexBuffer_axis, 0, VK_INDEX_TYPE_UINT32);
+
+				vkCmdBindDescriptorSets(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSet, 0, nullptr);
+
+				//vkCmdDraw(commandBuffers[i], vertices.size(), 1, 0, 0);
+				vkCmdDrawIndexed(commandBuffers[i], (uint32_t)indices_axis.size(), 1, 0, 0, 0);
+
 
 			vkCmdEndRenderPass(commandBuffers[i]);
 
@@ -964,8 +1014,8 @@ private:
 	}
 
 
-	void createVertexBuffer() {
-		VkDeviceSize bufferSize = sizeof(vertices[0]) * vertices.size();
+	void createVertexBuffer(std::vector<Vertex> & verticesData, VDeleter<VkBuffer>& buffer, VDeleter<VkDeviceMemory>& bufferMemory) {
+		VkDeviceSize bufferSize = sizeof(verticesData[0]) * verticesData.size();
 
 		VDeleter<VkBuffer> stagingBuffer{ device, vkDestroyBuffer };
 		VDeleter<VkDeviceMemory> stagingBufferMemory{ device, vkFreeMemory };
@@ -976,15 +1026,41 @@ private:
 
 		void* data;
 		vkMapMemory(device, stagingBufferMemory, 0, bufferSize, 0, &data);
-			memcpy(data, vertices.data(), (size_t)bufferSize);
+			memcpy(data, verticesData.data(), (size_t)bufferSize);
 		vkUnmapMemory(device, stagingBufferMemory);
 
 		createBuffer(bufferSize, 
 			VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, 
 			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, 
-			vertexBuffer, vertexBufferMemory);
+			buffer, bufferMemory);
 
-		copyBuffer(stagingBuffer, vertexBuffer, bufferSize);
+		copyBuffer(stagingBuffer, buffer, bufferSize);
+	}
+
+
+	// index buffer
+	void createIndexBuffer(std::vector<uint32_t> &indicesData, VDeleter<VkBuffer>& buffer, VDeleter<VkDeviceMemory>& bufferMemory) {
+
+		VkDeviceSize bufferSize = sizeof(indicesData[0]) * indicesData.size();
+
+		VDeleter<VkBuffer> stagingBuffer{ device, vkDestroyBuffer };
+		VDeleter<VkDeviceMemory> stagingBufferMemory{ device, vkFreeMemory };
+		createBuffer(bufferSize, 
+			VK_BUFFER_USAGE_TRANSFER_SRC_BIT, 
+			VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, 
+			stagingBuffer, stagingBufferMemory);
+
+		void* data;
+		vkMapMemory(device, stagingBufferMemory, 0, bufferSize, 0, &data);
+			memcpy(data, indicesData.data(), (size_t)bufferSize);
+		vkUnmapMemory(device, stagingBufferMemory);
+
+		createBuffer(bufferSize, 
+			VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, 
+			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+			buffer, bufferMemory);
+
+		copyBuffer(stagingBuffer, buffer, bufferSize);
 	}
 
 
@@ -1243,7 +1319,23 @@ private:
 		if (vkCreateShaderModule(device, &createInfo, nullptr, shaderModule.replace()) != VK_SUCCESS) {
 			throw std::runtime_error("failed to create shader module!");
 		}
+
 	}
+
+
+	VkPipelineShaderStageCreateInfo loadShader(std::string fileName, VkShaderStageFlagBits stage, int shaderModuleIndex) {
+		VkPipelineShaderStageCreateInfo shaderStage = {};
+		std::vector<char> codes = readFile(fileName);
+		createShaderModule(codes, shaderModules[shaderModuleIndex]);
+
+		shaderStage.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+		shaderStage.stage = stage;
+		shaderStage.module = shaderModules[shaderModuleIndex];
+		shaderStage.pName = "main"; // todo : make param
+
+		return shaderStage;
+	}
+
 
 	// find memory type
 	uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties) {
@@ -1331,23 +1423,6 @@ private:
 		endSingleTimeCommands(commandBuffer);
 	}
 
-	// index buffer
-	void createIndexBuffer() {
-		VkDeviceSize bufferSize = sizeof(indices[0]) * indices.size();
-
-		VDeleter<VkBuffer> stagingBuffer{ device, vkDestroyBuffer };
-		VDeleter<VkDeviceMemory> stagingBufferMemory{ device, vkFreeMemory };
-		createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory);
-
-		void* data;
-		vkMapMemory(device, stagingBufferMemory, 0, bufferSize, 0, &data);
-		memcpy(data, indices.data(), (size_t)bufferSize);
-		vkUnmapMemory(device, stagingBufferMemory);
-
-		createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, indexBuffer, indexBufferMemory);
-
-		copyBuffer(stagingBuffer, indexBuffer, bufferSize);
-	}
 
 	// descriptor set layout
 	void createDescriptorSetLayout() {
@@ -1813,8 +1888,44 @@ private:
 	}
 
 
-	// mouse control related
+	// load axis info
+	void loadAxisInfo() {
+		vertices_axis = {
+		
+			{ { 0.0f, 0.0f, 0.0f },{ 1.0f, 0.0f, 0.0f },{ 0.0f, 0.0f } },
+			{ { 2.0f, 0.0f, 0.0f },{ 1.0f, 0.0f, 0.0f },{ 0.0f, 0.0f } },
+			{ { 1.9f, -0.1f, 0.0f },{ 1.0f, 0.0f, 0.0f },{ 0.0f, 0.0f } },
+			{ { 1.9f, 0.1f, 0.0f },{ 1.0f, 0.0f, 0.0f },{ 0.0f, 0.0f } },
 
+			{ { 0.0f, 0.0f, 0.0f },{ 0.0f, 1.0f, 0.0f },{ 0.0f, 0.0f } },
+			{ { 0.0f, 2.0f, 0.0f },{ 0.0f, 1.0f, 0.0f },{ 0.0f, 0.0f } },
+			{ { -0.1f, 1.9f, 0.0f },{ 0.0f, 1.0f, 0.0f },{ 0.0f, 0.0f } },
+			{ { 0.1f, 1.9f, 0.0f },{ 0.0f, 1.0f, 0.0f },{ 0.0f, 0.0f } },
+
+			{ { 0.0f, 0.0f, 0.0f },{ 0.0f, 0.0f, 1.0f },{ 0.0f, 0.0f } },
+			{ { 0.0f, 0.0f, 2.0f },{ 0.0f, 0.0f, 1.0f },{ 0.0f, 0.0f } },
+			{ { 0.0f, -0.1f, 1.9f },{ 0.0f, 0.0f, 1.0f },{ 0.0f, 0.0f } },
+			{ { 0.0f, 0.1f, 1.9f },{ 0.0f, 0.0f, 1.0f },{ 0.0f, 0.0f } }
+		};
+		
+		indices_axis = {
+			0, 1,
+			1, 2,
+			1, 3,
+
+			4, 5,
+			5, 6,
+			5, 7,
+
+			8, 9,
+			9, 10,
+			9, 11
+		};
+
+	}
+
+
+	// mouse control related
 	static void cursorPosCallback(GLFWwindow* window, double xPos, double yPos) {
 		//std::cout << xPos << "," << yPos << std::endl;
 		if (!lbuttonDown) {

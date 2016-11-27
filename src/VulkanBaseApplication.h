@@ -174,7 +174,7 @@ struct LightInfo {
 	glm::vec4 color; // color.w = radius
 };
 
-#define MAX_NUM_LIGHT 8
+#define MAX_NUM_LIGHT 100
 struct FragLightInfos {
 	LightInfo lights[MAX_NUM_LIGHT];
 	int numLights;
@@ -1551,8 +1551,7 @@ private:
 
 	void createLightInfos() {
 
-		fragLightInfos.numLights = 8;
-
+		
 		//fragLightInfos.lights[0].pos = glm::vec4(0.3f, 1, 1.2f, 1); 
 		//fragLightInfos.lights[0].color = glm::vec4(1, 0, 0, 1.5f); 
 
@@ -1568,6 +1567,7 @@ private:
 		std::default_random_engine gen;
 		std::uniform_real_distribution<float> uniformDistribution(0.0f, 1.0f);
 
+		fragLightInfos.numLights = 8;
 		float scale = 3.0f;
 		for (int i = 0; i < fragLightInfos.numLights; ++i) {
 			float posX = uniformDistribution(gen) * 4.0f * scale - 2.0f * scale; 

@@ -9,7 +9,7 @@ struct LightInfo {
 layout(binding = 1) uniform sampler2D texSampler;
 
 layout(binding = 3) uniform LightInfos {
-    LightInfo lights[8];
+    LightInfo lights[100];
     int numLights;
 } lightInfos;
 

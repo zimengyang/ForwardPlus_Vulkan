@@ -57,10 +57,19 @@ Basic algorithm for light culling:
  * Texture mapping (multiple) and model loading
  * Basic camera control
 
+* 11/28 Basic Lighting in Vulkan / Debug Views
+![basic_lighting](./img/basic_lighting.gif)
+
+debug views:
+
+|depth|normal|
+|------|------|
+|![](./img/debug_views/depth_sibenik.png)|![](./img/debug_views/normal_sibenik.png)|
+
 
 # References:
 1. [Vulkan Tutorial](https://vulkan-tutorial.com/)
 2. [Vulkan Examples](https://github.com/SaschaWillems/Vulkan)
 3. [Forward Plus Rendering](http://www.3dgep.com/forward-plus/) 
-
+4. [Graphics Models](http://graphics.cs.williams.edu/data/meshes.xml)
 

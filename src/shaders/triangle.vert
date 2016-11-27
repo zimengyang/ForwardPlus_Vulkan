@@ -16,19 +16,24 @@ layout(location = 0) out vec3 fragColor;
 layout(location = 1) out vec2 fragTexCoord;
 layout(location = 2) out vec3 fragNormal;
 layout(location = 3) out vec3 fragPosWorldSapce;
+layout(location = 4) out float depth;
 
 out gl_PerVertex {
     vec4 gl_Position;
 };
 
 void main() {
-    gl_Position = ubo.proj * ubo.view * ubo.model * vec4(inPosition, 1.0);
+   
     fragColor = inColor;
     fragTexCoord = inTexCoord;
     fragNormal = inNormal;
 
     vec4 posWorldSpace = ubo.model * vec4(inPosition, 1.0);
-    posWorldSpace = posWorldSpace / posWorldSpace.w;
-    //depth = posViewSpace.z;
-    fragPosWorldSapce = posWorldSpace.xyz;
+    fragPosWorldSapce = posWorldSpace.xyz / posWorldSpace.w;
+
+    vec4 posViewSpace = ubo.view * posWorldSpace;
+    depth = posViewSpace.z / posViewSpace.w;
+
+    vec4 posProjSpace = ubo.proj * posViewSpace;
+    gl_Position = posProjSpace;
 }

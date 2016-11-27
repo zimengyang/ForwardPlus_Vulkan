@@ -17,6 +17,7 @@ layout(location = 0) in vec3 fragColor;
 layout(location = 1) in vec2 fragTexCoord;
 layout(location = 2) in vec3 normal;
 layout(location = 3) in vec3 fragPosWorldSpace;
+layout(location = 4) in float depth;
 
 layout(location = 0) out vec4 outColor;
 
@@ -51,7 +52,9 @@ void main() {
     //finalColor = finalColor * texture(texSampler, fragTexCoord).xyz;
     outColor = vec4(finalColor, 1.0);
 
+    //outColor = vec4(abs(1.0 / depth) * vec3(1,1,1), 1);
 
+    //outColor = vec4(abs(normal), 1.0);
 
     // if(debugMode == 0) // texture color
     // {    

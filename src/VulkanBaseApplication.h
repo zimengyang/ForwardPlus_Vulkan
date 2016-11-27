@@ -19,6 +19,7 @@
 #include <array>
 #include <chrono>
 #include <unordered_map>
+#include <random>
 
 #define _USE_MATH_DEFINES
 #include <cmath> 
@@ -34,7 +35,8 @@
 extern const int WIDTH;
 extern const int HEIGHT;
 
-const std::string MODEL_PATH = "../src/models/chalet/chalet.obj";
+//const std::string MODEL_PATH = "../src/models/chalet/chalet.obj";
+const std::string MODEL_PATH = "../src/models/sibenik/sibenik.obj";
 
 const std::string TEXTURE_PATH1 = "../src/models/chalet/chalet.jpg";
 const std::string TEXTURE_PATH2 = "../src/textures/bald_eagle_1280.jpg";
@@ -155,7 +157,7 @@ namespace std {
 			return ((hash<glm::vec3>()(vertex.pos) ^
 				(hash<glm::vec3>()(vertex.color) << 1)) >> 1) ^
 				(hash<glm::vec2>()(vertex.texCoord) << 1 ^ 
-				(hash<glm::vec2>()(vertex.normal) << 1));
+				(hash<glm::vec3>()(vertex.normal) << 1));
 		}
 	};
 }
@@ -165,10 +167,19 @@ struct UniformBufferObject {
 	glm::mat4 model;
 	glm::mat4 view;
 	glm::mat4 proj;
-	glm::vec4 lightPosition;
 };
 
+struct LightInfo {
+	glm::vec4 pos; // pos.w = intensity
+	glm::vec4 color; // color.w = radius
+};
 
+#define MAX_NUM_LIGHT 8
+struct FragLightInfos {
+	LightInfo lights[MAX_NUM_LIGHT];
+	int numLights;
+};
+bool lightMoveDirs[MAX_NUM_LIGHT];
 
 /************************************************************/
 //			Base Class for Vulkan Application
@@ -272,6 +283,14 @@ private:
 	VDeleter<VkDeviceMemory> uniformStagingBufferMemory{ device, vkFreeMemory };
 	VDeleter<VkBuffer> uniformBuffer{ device, vkDestroyBuffer };
 	VDeleter<VkDeviceMemory> uniformBufferMemory{ device, vkFreeMemory };
+
+	// fragment shader light infos
+	VDeleter<VkBuffer> fragLightsStagingBuffer{ device, vkDestroyBuffer };
+	VDeleter<VkDeviceMemory> fragLightsStagingBufferMemory{ device, vkFreeMemory };
+	VDeleter<VkBuffer> fragLightsBuffer{ device, vkDestroyBuffer };
+	VDeleter<VkDeviceMemory> fragLightsBufferMemory{ device, vkFreeMemory };
+
+	FragLightInfos fragLightInfos;
 
 	// descriptor pool
 	VDeleter<VkDescriptorPool> descriptorPool{ device, vkDestroyDescriptorPool };
@@ -396,7 +415,7 @@ private:
 		/*createTextureImage();
 		createTextureImageView();
 		createTextureSampler();*/
-		loadModel(vertices, indices, MODEL_PATH, 0.85f);
+		loadModel(vertices, indices, MODEL_PATH, 0.4f);
 		loadAxisInfo();
 		loadTextureQuad();
 
@@ -407,6 +426,9 @@ private:
 		createIndexBuffer(indices_axis, indexBuffer_axis, indexBufferMemory_axis);
 		createVertexBuffer(vertices_quad, vertexBuffer_quad, vertexBufferMemory_quad);
 		createIndexBuffer(indices_quad, indexBuffer_quad, indexBufferMemory_quad);
+
+		// light information
+		createLightInfos();
 
 		createUniformBuffer();
 		createDescriptorPool();
@@ -965,22 +987,23 @@ private:
 
 
 				// draw quad here
-				vkCmdBindPipeline(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline_quad);
+				//vkCmdBindPipeline(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline_quad);
 
-				// binding the vertex buffer
-				VkBuffer vertexBuffers_quad[] = { vertexBuffer_quad };
-				VkDeviceSize offsets_quad[] = { 0 };
-				vkCmdBindVertexBuffers(commandBuffers[i], 0, 1, vertexBuffers_quad, offsets_quad);
+				//// binding the vertex buffer
+				//VkBuffer vertexBuffers_quad[] = { vertexBuffer_quad };
+				//VkDeviceSize offsets_quad[] = { 0 };
+				//vkCmdBindVertexBuffers(commandBuffers[i], 0, 1, vertexBuffers_quad, offsets_quad);
 
-				vkCmdBindIndexBuffer(commandBuffers[i], indexBuffer_quad, 0, VK_INDEX_TYPE_UINT32);
+				//vkCmdBindIndexBuffer(commandBuffers[i], indexBuffer_quad, 0, VK_INDEX_TYPE_UINT32);
 
-				vkCmdBindDescriptorSets(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSet, 0, nullptr);
+				//vkCmdBindDescriptorSets(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSet, 0, nullptr);
 
-				//vkCmdDraw(commandBuffers[i], vertices.size(), 1, 0, 0);
-				vkCmdDrawIndexed(commandBuffers[i], (uint32_t)indices_quad.size(), 1, 0, 0, 0);
+				////vkCmdDraw(commandBuffers[i], vertices.size(), 1, 0, 0);
+				//vkCmdDrawIndexed(commandBuffers[i], (uint32_t)indices_quad.size(), 1, 0, 0, 0);
 
-
+				
 				// draw axis here (line list)
+				// bind pipeline
 				vkCmdBindPipeline(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline_axis);
 				// binding the vertex buffer for axis
 				VkBuffer vertexBuffers_axis[] = { vertexBuffer_axis };
@@ -1506,7 +1529,14 @@ private:
 		samplerLayoutBinding2.pImmutableSamplers = nullptr;
 		samplerLayoutBinding2.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
 
-		std::array<VkDescriptorSetLayoutBinding, 3> bindings = { uboLayoutBinding, samplerLayoutBinding, samplerLayoutBinding2 };
+		VkDescriptorSetLayoutBinding fragLightsLayoutBinding = {};
+		fragLightsLayoutBinding.binding = 3;
+		fragLightsLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+		fragLightsLayoutBinding.descriptorCount = 1;
+		fragLightsLayoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+		fragLightsLayoutBinding.pImmutableSamplers = nullptr; // Optional
+
+		std::array<VkDescriptorSetLayoutBinding, 4> bindings = { uboLayoutBinding, samplerLayoutBinding, samplerLayoutBinding2, fragLightsLayoutBinding };
 		
 		VkDescriptorSetLayoutCreateInfo layoutInfo = {};
 		layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
@@ -1519,15 +1549,59 @@ private:
 
 	}
 
+	void createLightInfos() {
+
+		fragLightInfos.numLights = 8;
+
+		//fragLightInfos.lights[0].pos = glm::vec4(0.3f, 1, 1.2f, 1); 
+		//fragLightInfos.lights[0].color = glm::vec4(1, 0, 0, 1.5f); 
+
+		//fragLightInfos.lights[1].pos = glm::vec4(0.0f, 0.2f, 1.0f, 1.5f);
+		//fragLightInfos.lights[1].color = glm::vec4(0, 0, 1, 3.0f);
+
+		//fragLightInfos.lights[2].pos = glm::vec4(0, -1, -0.5f, 1);
+		//fragLightInfos.lights[2].color = glm::vec4(0, 1, 0, 1.5f);
+
+		//fragLightInfos.lights[3].pos = glm::vec4(-0.1f, 0.6f, -0.7f, 1);
+		//fragLightInfos.lights[3].color = glm::vec4(0.3f, 0.1f, 0.5f, 2.5f);
+
+		std::default_random_engine gen;
+		std::uniform_real_distribution<float> uniformDistribution(0.0f, 1.0f);
+
+		float scale = 3.0f;
+		for (int i = 0; i < fragLightInfos.numLights; ++i) {
+			float posX = uniformDistribution(gen) * 4.0f * scale - 2.0f * scale; 
+			float posY = uniformDistribution(gen) * 2.0f - 1.0f;
+			float posZ = uniformDistribution(gen) * 2.0f * scale - scale;
+			float intensity = uniformDistribution(gen) * 0.8f; 
+			fragLightInfos.lights[i].pos = glm::vec4(posX, posY, posZ, intensity);
+
+			fragLightInfos.lights[i].color = glm::vec4(
+				uniformDistribution(gen),
+				uniformDistribution(gen), 
+				uniformDistribution(gen),
+				uniformDistribution(gen) * 2.0f * scale);
+
+			lightMoveDirs[i] = false;
+		}
+	}
 
 	void createUniformBuffer() {
 		VkDeviceSize bufferSize = sizeof(UniformBufferObject);
 
 		createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, uniformStagingBuffer, uniformStagingBufferMemory);
 		createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, uniformBuffer, uniformBufferMemory);
+		
+		bufferSize = sizeof(FragLightInfos);
+
+		createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, fragLightsStagingBuffer, fragLightsStagingBufferMemory);
+		createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, fragLightsBuffer, fragLightsBufferMemory);
+
 	}
 
 	void updateUniformBuffer() {
+
+		//--------------------- update vertex uniform buffer----------------------------------
 		static auto startTime = std::chrono::high_resolution_clock::now();
 
 		auto currentTime = std::chrono::high_resolution_clock::now();
@@ -1537,24 +1611,26 @@ private:
 
 		// update model rotations
 		//ubo.model = glm::rotate(glm::mat4(), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-		ubo.model = glm::rotate(glm::mat4(), modelRotAngles.x , glm::vec3(0.0f, 0.0f, 1.0f)) * glm::rotate(glm::mat4(), modelRotAngles.y, glm::vec3(0.0f, 1.0f, 0.0f));
-	
+		//ubo.model = glm::rotate(glm::mat4(), modelRotAngles.x , glm::vec3(0.0f, 0.0f, 1.0f)) * glm::rotate(glm::mat4(), modelRotAngles.y, glm::vec3(0.0f, 1.0f, 0.0f));
+		ubo.model = glm::translate(glm::mat4(), glm::vec3(0, 4, 0));
+
 		// update camera rotations
 		glm::vec4 rotCameraPos = glm::vec4(cameraPos, 1.0f);
 		rotCameraPos = glm::rotate(glm::mat4(), -cameraRotAngles.x, glm::vec3(0.0f, 0.0f, 1.0f)) * rotCameraPos;
 		//cameraPos = glm::vec3(rotCameraPos);
-		ubo.view = glm::lookAt(glm::vec3(rotCameraPos), glm::vec3(0,0,0), glm::vec3(0.0f, 0.0f, 1.0f));
+		//ubo.view = glm::lookAt(glm::vec3(rotCameraPos), glm::vec3(0,0,0), glm::vec3(0.0f, 1.0f, 0.0f));
+		ubo.view = glm::lookAt(glm::vec3(-5, 0, 0), glm::vec3(0, 0, 0), glm::vec3(0.0f, 1.0f, 0.0f));
 
 		// projection matrix
 		ubo.proj = glm::perspective(glm::radians(45.0f), swapChainExtent.width / (float)swapChainExtent.height, 0.01f, 100.0f);
 		ubo.proj[1][1] *= -1;
 
 		// light position
-		ubo.lightPosition = rotCameraPos;
+		//ubo.lightPosition = rotCameraPos;
 
 		// debug mode
 		//ubo.debugMode = debugMode;
-		ubo.lightPosition.w = debugMode;
+		//ubo.lightPosition.w = debugMode;
 
 		void* data;
 		vkMapMemory(device, uniformStagingBufferMemory, 0, sizeof(ubo), 0, &data);
@@ -1562,17 +1638,38 @@ private:
 		vkUnmapMemory(device, uniformStagingBufferMemory);
 
 		copyBuffer(uniformStagingBuffer, uniformBuffer, sizeof(ubo));
+
+
+		//--------------------- update frag uniform buffer (lights)----------------------------------
+
+		for (int i = 0; i < fragLightInfos.numLights; ++i) {
+			fragLightInfos.lights[i].pos.y += 0.0015f * ((float)lightMoveDirs[i] * 2.0f - 1.0f);
+
+			if (fragLightInfos.lights[i].pos.y > 1.0f || fragLightInfos.lights[i].pos.y < -2.0f)
+			{
+				//fragLightInfos.lights[i].pos.y = 2.0f;
+				lightMoveDirs[i] = !lightMoveDirs[i];
+			}
+		}
+
+		vkMapMemory(device, fragLightsStagingBufferMemory, 0, sizeof(fragLightInfos), 0, &data);
+		memcpy(data, &fragLightInfos, sizeof(fragLightInfos));
+		vkUnmapMemory(device, fragLightsStagingBufferMemory);
+
+		copyBuffer(fragLightsStagingBuffer, fragLightsBuffer, sizeof(fragLightInfos));
 	}
 
 	void createDescriptorPool() {
 
-		std::array<VkDescriptorPoolSize, 3> poolSizes = {};
+		std::array<VkDescriptorPoolSize, 4> poolSizes = {};
 		poolSizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
 		poolSizes[0].descriptorCount = 1;
 		poolSizes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
 		poolSizes[1].descriptorCount = 1; 
 		poolSizes[2].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-		poolSizes[2].descriptorCount = 1;
+		poolSizes[2].descriptorCount = 1; 
+		poolSizes[3].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+		poolSizes[3].descriptorCount = 1;
 
 		VkDescriptorPoolCreateInfo poolInfo = {};
 		poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
@@ -1603,6 +1700,11 @@ private:
 		bufferInfo.offset = 0;
 		bufferInfo.range = sizeof(UniformBufferObject);
 
+		VkDescriptorBufferInfo lightsBufferInfo = {};
+		lightsBufferInfo.buffer = fragLightsBuffer;
+		lightsBufferInfo.offset = 0;
+		lightsBufferInfo.range = sizeof(FragLightInfos);
+
 		std::array<VkDescriptorImageInfo, 2> imageInfo = {};
 		imageInfo[0].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 		imageInfo[0].imageView = textureImageViews[0];
@@ -1612,7 +1714,7 @@ private:
 		imageInfo[1].imageView = textureImageViews[1];
 		imageInfo[1].sampler = textureSamplers[1];
 
-		std::array<VkWriteDescriptorSet, 3> descriptorWrites = {};
+		std::array<VkWriteDescriptorSet, 4> descriptorWrites = {};
 
 		descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
 		descriptorWrites[0].dstSet = descriptorSet;
@@ -1637,6 +1739,14 @@ private:
 		descriptorWrites[2].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
 		descriptorWrites[2].descriptorCount = 1;
 		descriptorWrites[2].pImageInfo = &imageInfo[1];
+
+		descriptorWrites[3].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+		descriptorWrites[3].dstSet = descriptorSet;
+		descriptorWrites[3].dstBinding = 3;
+		descriptorWrites[3].dstArrayElement = 0;
+		descriptorWrites[3].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+		descriptorWrites[3].descriptorCount = 1;
+		descriptorWrites[3].pBufferInfo = &lightsBufferInfo;
 
 		vkUpdateDescriptorSets(device, (uint32_t)descriptorWrites.size(), descriptorWrites.data(), 0, nullptr);
 	}
@@ -2006,7 +2116,7 @@ private:
 	// load axis info
 	void loadAxisInfo() {
 
-		const float axisLen = 1.5f;
+		const float axisLen = 1.0f;
 		const float axisDelta = 0.1f;
 		vertices_axis = {
 

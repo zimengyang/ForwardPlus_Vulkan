@@ -62,7 +62,11 @@ bool lbuttonDown, rbuttonDown;
 glm::vec2 modelRotAngles; // for model rotation
 
 glm::vec3 cameraPos;
+glm::vec3 lookAtDir;
 glm::vec2 cameraRotAngles; // for camera rotation
+
+// deubg mode int
+float debugMode;
 
 VkResult CreateDebugReportCallbackEXT(VkInstance instance, const VkDebugReportCallbackCreateInfoEXT* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkDebugReportCallbackEXT* pCallback) {
 	auto func = (PFN_vkCreateDebugReportCallbackEXT)vkGetInstanceProcAddr(instance, "vkCreateDebugReportCallbackEXT");
@@ -102,7 +106,7 @@ struct Vertex {
 	glm::vec3 pos;
 	glm::vec3 color;
 	glm::vec2 texCoord;
-
+	glm::vec3 normal;
 
 	static VkVertexInputBindingDescription getBindingDescription() {
 		VkVertexInputBindingDescription bindingDescription = {};
@@ -113,8 +117,8 @@ struct Vertex {
 		return bindingDescription;
 	}
 
-	static std::array<VkVertexInputAttributeDescription, 3> getAttributeDescriptions() {
-		std::array<VkVertexInputAttributeDescription, 3> attributeDescriptions = {};
+	static std::array<VkVertexInputAttributeDescription, 4> getAttributeDescriptions() {
+		std::array<VkVertexInputAttributeDescription, 4> attributeDescriptions = {};
 		attributeDescriptions[0].binding = 0;
 		attributeDescriptions[0].location = 0;
 		attributeDescriptions[0].format = VK_FORMAT_R32G32B32_SFLOAT;
@@ -129,51 +133,39 @@ struct Vertex {
 		attributeDescriptions[2].location = 2;
 		attributeDescriptions[2].format = VK_FORMAT_R32G32_SFLOAT;
 		attributeDescriptions[2].offset = offsetof(Vertex, texCoord);
+
+		attributeDescriptions[3].binding = 0;
+		attributeDescriptions[3].location = 3;
+		attributeDescriptions[3].format = VK_FORMAT_R32G32B32_SFLOAT;
+		attributeDescriptions[3].offset = offsetof(Vertex, normal);
 		return attributeDescriptions;
 	}
 
 	bool operator==(const Vertex& other) const {
-		return pos == other.pos && color == other.color && texCoord == other.texCoord;
+		return pos == other.pos && color == other.color && texCoord == other.texCoord && normal == other.normal;
 	}
 
 };
 
 
 namespace std {
+
 	template<> struct hash<Vertex> {
 		size_t operator()(Vertex const& vertex) const {
 			return ((hash<glm::vec3>()(vertex.pos) ^
 				(hash<glm::vec3>()(vertex.color) << 1)) >> 1) ^
-				(hash<glm::vec2>()(vertex.texCoord) << 1);
+				(hash<glm::vec2>()(vertex.texCoord) << 1 ^ 
+				(hash<glm::vec2>()(vertex.normal) << 1));
 		}
 	};
 }
-
-
-//const std::vector<Vertex> vertices = {
-//
-//	{ { -0.5f, -0.5f, 0.0f },{ 1.0f, 0.0f, 0.0f },{ 0.0f, 0.0f } },	
-//	{ { 0.5f, -0.5f, 0.0f },{ 0.0f, 1.0f, 0.0f },{ 1.0f, 0.0f } },
-//	{ { 0.5f, 0.5f, 0.0f },{ 0.0f, 0.0f, 1.0f },{ 1.0f, 1.0f } },
-//	{ { -0.5f, 0.5f, 0.0f },{ 1.0f, 1.0f, 1.0f },{ 0.0f, 1.0f } },
-//
-//	{ { -0.5f, -0.5f, -0.5f },{ 1.0f, 0.0f, 0.0f },{ 0.0f, 0.0f } },
-//	{ { 0.5f, -0.5f, -0.5f },{ 0.0f, 1.0f, 0.0f },{ 1.0f, 0.0f } },
-//	{ { 0.5f, 0.5f, -0.5f },{ 0.0f, 0.0f, 1.0f },{ 1.0f, 1.0f } },
-//	{ { -0.5f, 0.5f, -0.5f },{ 1.0f, 1.0f, 1.0f },{ 0.0f, 1.0f } }
-//
-//};
-//
-//const std::vector<uint16_t> indices = {
-//	0, 1, 2, 2, 3, 0,
-//	4, 5, 6, 6, 7, 4
-//};
 
 
 struct UniformBufferObject {
 	glm::mat4 model;
 	glm::mat4 view;
 	glm::mat4 proj;
+	glm::vec4 lightPosition;
 };
 
 
@@ -325,6 +317,7 @@ private:
 		// setup callback functions
 		cameraPos = glm::vec3(2.5f, 2.5f, 2.5f);
 
+
 		glfwSetCursorPosCallback(window, cursorPosCallback);
 		glfwSetMouseButtonCallback(window, mouseButtonCallback);
 		glfwSetKeyCallback(window, keyCallback);
@@ -403,7 +396,7 @@ private:
 		/*createTextureImage();
 		createTextureImageView();
 		createTextureSampler();*/
-		loadModel();
+		loadModel(vertices, indices, MODEL_PATH, 0.85f);
 		loadAxisInfo();
 		loadTextureQuad();
 
@@ -1548,14 +1541,20 @@ private:
 	
 		// update camera rotations
 		glm::vec4 rotCameraPos = glm::vec4(cameraPos, 1.0f);
-		rotCameraPos = glm::rotate(glm::mat4(), cameraRotAngles.x, glm::vec3(0.0f, 0.0f, 1.0f)) * rotCameraPos;
+		rotCameraPos = glm::rotate(glm::mat4(), -cameraRotAngles.x, glm::vec3(0.0f, 0.0f, 1.0f)) * rotCameraPos;
 		//cameraPos = glm::vec3(rotCameraPos);
-		ubo.view = glm::lookAt(glm::vec3(rotCameraPos), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+		ubo.view = glm::lookAt(glm::vec3(rotCameraPos), glm::vec3(0,0,0), glm::vec3(0.0f, 0.0f, 1.0f));
 
 		// projection matrix
 		ubo.proj = glm::perspective(glm::radians(45.0f), swapChainExtent.width / (float)swapChainExtent.height, 0.01f, 100.0f);
 		ubo.proj[1][1] *= -1;
 
+		// light position
+		ubo.lightPosition = rotCameraPos;
+
+		// debug mode
+		//ubo.debugMode = debugMode;
+		ubo.lightPosition.w = debugMode;
 
 		void* data;
 		vkMapMemory(device, uniformStagingBufferMemory, 0, sizeof(ubo), 0, &data);
@@ -1943,26 +1942,29 @@ private:
 	}
 
 
-	void loadModel() {
+	void loadModel(std::vector<Vertex> & vertices, std::vector<uint32_t> & indices, const std::string & modelFilename, float scale = 1.0f) {
+
 		tinyobj::attrib_t attrib;
 		std::vector<tinyobj::shape_t> shapes;
 		std::vector<tinyobj::material_t> materials;
 		std::string err;
 
-		if (!tinyobj::LoadObj(&attrib, &shapes, &materials, &err, MODEL_PATH.c_str())) {
+		if (!tinyobj::LoadObj(&attrib, &shapes, &materials, &err, modelFilename.c_str())) {
 			throw std::runtime_error(err);
 		}
 
 		std::unordered_map<Vertex, int> uniqueVertices = {};
 
 		for (const auto& shape : shapes) {
-			for (const auto& index : shape.mesh.indices) {
+			//for (const auto& index : shape.mesh.indices) {
+			for (int i = 0; i < shape.mesh.indices.size();i++) {
+				auto& index = shape.mesh.indices[i];
 				Vertex vertex = {};
 
 				vertex.pos = {
-					attrib.vertices[3 * index.vertex_index + 0],
-					attrib.vertices[3 * index.vertex_index + 1],
-					attrib.vertices[3 * index.vertex_index + 2]
+					scale * attrib.vertices[3 * index.vertex_index + 0],
+					scale * attrib.vertices[3 * index.vertex_index + 1],
+					scale * attrib.vertices[3 * index.vertex_index + 2]
 				};
 
 				vertex.texCoord = {
@@ -1979,6 +1981,24 @@ private:
 
 				indices.push_back(uniqueVertices[vertex]);
 			}
+		}
+
+
+		// compute triangle normal here
+		for (int i = 0; i < indices.size(); i += 3) {
+			glm::vec3 P1 = vertices[indices[i + 0]].pos;
+			glm::vec3 P2 = vertices[indices[i + 1]].pos;
+			glm::vec3 P3 = vertices[indices[i + 2]].pos;
+
+			glm::vec3 V = P2 - P1;
+			glm::vec3 W = P3 - P1;
+
+			glm::vec3 N = glm::cross(V, W);
+
+			N = glm::normalize(N);
+			vertices[indices[i + 0]].normal = N;
+			vertices[indices[i + 1]].normal = N;
+			vertices[indices[i + 2]].normal = N;
 		}
 	}
 
@@ -2106,9 +2126,37 @@ private:
 	}
 
 	static void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods) {
-		if (action == GLFW_PRESS && key == GLFW_KEY_ESCAPE) {
-			glfwSetWindowShouldClose(window, GLFW_TRUE);
+
+		if (action == GLFW_PRESS)
+		{
+			switch (key)
+			{
+			case GLFW_KEY_ESCAPE:
+				glfwSetWindowShouldClose(window, GLFW_TRUE);
+				break;
+			case GLFW_KEY_0:
+				debugMode = 0;
+				break;
+			case GLFW_KEY_1:
+				debugMode = 1;
+				break;
+			case GLFW_KEY_2:
+				debugMode = 2;
+				break;
+			case GLFW_KEY_3:
+				debugMode = 3;
+				break;
+			case GLFW_KEY_4:
+				debugMode = 4;
+				break;
+			case GLFW_KEY_5:
+				debugMode = 5;
+				break;
+			default:
+				break;
+			}
 		}
+	
 	}
 
 	static void scrollCallback(GLFWwindow* window, double xoffset, double yoffset) {

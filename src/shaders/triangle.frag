@@ -18,6 +18,7 @@ layout(location = 1) in vec2 fragTexCoord;
 layout(location = 2) in vec3 normal;
 layout(location = 3) in vec3 fragPosWorldSpace;
 layout(location = 4) in float depth;
+layout(location = 5) in vec4 cameraPos;
 
 layout(location = 0) out vec4 outColor;
 
@@ -29,10 +30,12 @@ void main() {
     //outColor = vec4(normal, 1.0); // normal
 
     vec3 finalColor = vec3(0,0,0);
-    // lighting
+    // lighting for each light 
     vec3 lightPos, lightDir, lightColor;
+    vec3 viewDir = normalize(cameraPos.xyz - fragPosWorldSpace);
     float dist, lightIntensity, NdotL, lightRadius;
-    for(int i=0;i<lightInfos.numLights;++i){
+
+    for(int i=0; i<lightInfos.numLights; ++i) {
         lightPos = lightInfos.lights[i].pos.xyz;
         lightColor = lightInfos.lights[i].color.xyz;
         lightDir = lightPos - fragPosWorldSpace;
@@ -43,11 +46,20 @@ void main() {
         lightDir = lightDir/dist;
 
         // attenuation
-        float att = max(0, lightRadius - dist);
+        //float att = max(0, lightRadius - dist);
 
-        NdotL = dot(normal,lightDir);
+        //NdotL = dot(normal,lightDir);
         
-        finalColor += max(0, NdotL) * lightColor * att * lightIntensity;
+        //finalColor += max(0, NdotL) * lightColor * att * lightIntensity;
+        vec3 halfDir = normalize(lightDir + viewDir);
+        float specAngle = max(dot(halfDir, normal), 0.0);
+        float specular = pow(specAngle, 16.0);
+
+        vec3 tmpColor = (0.5 * NdotL + 0.5 * specular) * lightColor * lightIntensity;
+
+        float att = max(0.0, lightRadius - dist);
+        finalColor += att * tmpColor;
+
     }
     //finalColor = finalColor * texture(texSampler, fragTexCoord).xyz;
     outColor = vec4(finalColor, 1.0);
@@ -55,31 +67,4 @@ void main() {
     //outColor = vec4(abs(1.0 / depth) * vec3(1,1,1), 1);
 
     //outColor = vec4(abs(normal), 1.0);
-
-    // if(debugMode == 0) // texture color
-    // {    
-    //     outColor = texture(texSampler, fragTexCoord);
-    //     return;
-    // }
-    // else if(debugMode == 1) // tex coord debug
-    // {
-    //     outColor = vec4(fragTexCoord, 0.0, 1.0);
-    //     return;
-    // }
-    // else if(debugMode == 2) // normal 
-    // {
-    //     outColor = vec4(normal, 1.0);
-    //     return;
-    // }
-    // else if(debugMode == 3) // depth 
-    // {
-    //     outColor = vec4(abs(depth) * vec3(1,1,1), 1);
-    //     return;
-    // }
-    // else 
-    // {
-    //     outColor = texture(texSampler, fragTexCoord);
-    //     return;
-    // }
-
 }

@@ -335,7 +335,7 @@ private:
 		window = glfwCreateWindow(WIDTH, HEIGHT, "Vulkan", nullptr, nullptr);
 
 		// setup callback functions
-		cameraPos = glm::vec3(2.5f, 2.5f, 2.5f);
+		cameraPos = glm::vec3(-5.0f, 0.5f, 0.0f);
 
 
 		glfwSetCursorPosCallback(window, cursorPosCallback);
@@ -1568,7 +1568,7 @@ private:
 		std::default_random_engine gen;
 		std::uniform_real_distribution<float> uniformDistribution(0.0f, 1.0f);
 
-		fragLightInfos.numLights = 8;
+		fragLightInfos.numLights = 16;
 		float scale = 3.0f;
 		for (int i = 0; i < fragLightInfos.numLights; ++i) {
 			float posX = uniformDistribution(gen) * 4.0f * scale - 2.0f * scale; 
@@ -1619,7 +1619,7 @@ private:
 		//glm::vec4 rotCameraPos = glm::vec4(cameraPos, 1.0f);
 		//rotCameraPos = glm::rotate(glm::mat4(), -cameraRotAngles.x, glm::vec3(0.0f, 0.0f, 1.0f)) * rotCameraPos;
 		//ubo.view = glm::lookAt(glm::vec3(rotCameraPos), glm::vec3(0,0,0), glm::vec3(0.0f, 1.0f, 0.0f));
-		ubo.view = glm::lookAt(glm::vec3(-5, 0, 0), glm::vec3(0, 0, 0), glm::vec3(0.0f, 1.0f, 0.0f));
+		ubo.view = glm::lookAt(cameraPos, glm::vec3(0, 0, 0), glm::vec3(0.0f, 1.0f, 0.0f));
 
 		// projection matrix
 		ubo.proj = glm::perspective(glm::radians(45.0f), swapChainExtent.width / (float)swapChainExtent.height, 0.01f, 100.0f);
@@ -1633,7 +1633,7 @@ private:
 		//ubo.lightPosition.w = debugMode;
 
 		// cameraPos
-		ubo.cameraPos = glm::vec4(-5, 0, 0, 1.0f);
+		ubo.cameraPos = glm::vec4(cameraPos, 1.0f);
 
 		// copy data to buffer memory
 		void* data;

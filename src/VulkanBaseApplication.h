@@ -1568,7 +1568,7 @@ private:
 		std::default_random_engine gen;
 		std::uniform_real_distribution<float> uniformDistribution(0.0f, 1.0f);
 
-		fragLightInfos.numLights = 16;
+		fragLightInfos.numLights = 8;
 		float scale = 3.0f;
 		for (int i = 0; i < fragLightInfos.numLights; ++i) {
 			float posX = uniformDistribution(gen) * 4.0f * scale - 2.0f * scale; 

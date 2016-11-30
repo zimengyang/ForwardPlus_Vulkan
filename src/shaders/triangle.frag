@@ -48,14 +48,14 @@ void main() {
         // attenuation
         //float att = max(0, lightRadius - dist);
 
-        //NdotL = dot(normal,lightDir);
+        NdotL = dot(normal,lightDir);
         
         //finalColor += max(0, NdotL) * lightColor * att * lightIntensity;
         vec3 halfDir = normalize(lightDir + viewDir);
         float specAngle = max(dot(halfDir, normal), 0.0);
         float specular = pow(specAngle, 16.0);
 
-        vec3 tmpColor = (0.5 * NdotL + 0.5 * specular) * lightColor * lightIntensity;
+        vec3 tmpColor = (0.8 * NdotL + 0.2 * specular) * lightColor * lightIntensity;
 
         float att = max(0.0, lightRadius - dist);
         finalColor += att * tmpColor;

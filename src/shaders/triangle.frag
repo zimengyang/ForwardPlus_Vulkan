@@ -63,8 +63,4 @@ void main() {
     }
     //finalColor = finalColor * texture(texSampler, fragTexCoord).xyz;
     outColor = vec4(finalColor, 1.0);
-
-    //outColor = vec4(abs(1.0 / depth) * vec3(1,1,1), 1);
-
-    //outColor = vec4(abs(normal), 1.0);
 }

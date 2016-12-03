@@ -145,6 +145,10 @@ class VulkanBaseApplication {
 public:
 	void run();
 
+	// clean up resources
+	~VulkanBaseApplication();
+
+
 private:
 	GLFWwindow* window;
 
@@ -158,122 +162,130 @@ private:
 	VkQueue graphicsQueue;
 	VkQueue presentQueue;
 
-	// swap chain
+	// Swap chain related
 	VDeleter<VkSwapchainKHR> swapChain{ device, vkDestroySwapchainKHR };
 	std::vector<VkImage> swapChainImages;
 	VkFormat swapChainImageFormat;
 	VkExtent2D swapChainExtent;
-	 
-	// image views
-	std::vector<VDeleter<VkImageView>> swapChainImageViews;
-
-	// pipeline layout
-	VDeleter<VkDescriptorSetLayout> descriptorSetLayout{ device, vkDestroyDescriptorSetLayout };
-	VDeleter<VkPipelineLayout> pipelineLayout{ device, vkDestroyPipelineLayout };
-
-	// render pass
-	VDeleter<VkRenderPass> renderPass{ device, vkDestroyRenderPass };
-
-	// graphics pipeline(s) !
-	VDeleter<VkPipeline> graphicsPipeline{ device, vkDestroyPipeline };
-	VDeleter<VkPipeline> graphicsPipeline_axis{ device, vkDestroyPipeline };
-	VDeleter<VkPipeline> graphicsPipeline_quad{ device, vkDestroyPipeline };
-
-	// frame buffers
+	// swap chain image views
+	std::vector<VkImageView> swapChainImageViews; 
+	// swap chian frame buffers
 	std::vector<VDeleter<VkFramebuffer>> swapChainFramebuffers;
 
-	// command pool
+	// Pipeline layout
+	VDeleter<VkPipelineLayout> pipelineLayout{ device, vkDestroyPipelineLayout };
+
+	// Descriptor pool 
+	VDeleter<VkDescriptorPool> descriptorPool{ device, vkDestroyDescriptorPool };
+	
+	// Descriptor set layout and descriptor set
+	VDeleter<VkDescriptorSetLayout> descriptorSetLayout{ device, vkDestroyDescriptorSetLayout };
+	VkDescriptorSet descriptorSet;
+
+	// Render pass
+	VDeleter<VkRenderPass> renderPass{ device, vkDestroyRenderPass };
+
+	// Command pool
 	VDeleter<VkCommandPool> commandPool{ device, vkDestroyCommandPool };
 
-	// command buffers
+	// Command buffers
 	std::vector<VkCommandBuffer> commandBuffers;
 
-	// semaphores
+	// Semaphores
 	VDeleter<VkSemaphore> imageAvailableSemaphore{ device, vkDestroySemaphore };
 	VDeleter<VkSemaphore> renderFinishedSemaphore{ device, vkDestroySemaphore };
 
-	// vertices and indices
-	std::vector<Vertex> vertices;
-	std::vector<uint32_t> indices;
 
-	// vertex buffer
-	VDeleter<VkBuffer> vertexBuffer{ device, vkDestroyBuffer };
-	VDeleter<VkDeviceMemory> vertexBufferMemory{ device, vkFreeMemory };
+	// Pipeline(s)
+	struct Pipelines{
+		VkPipeline graphics; // base pipeline
+		VkPipeline axis; // axis pipeline 
+		VkPipeline quad; // quad pipeline
 
-	// index buffer
-	VDeleter<VkBuffer> indexBuffer{ device, vkDestroyBuffer };
-	VDeleter<VkDeviceMemory> indexBufferMemory{ device, vkFreeMemory };
+		void cleanup(VkDevice device) {
+			vkDestroyPipeline(device, graphics, nullptr);
+			vkDestroyPipeline(device, axis, nullptr);
+			vkDestroyPipeline(device, quad, nullptr);
+		}
 
-
-	// vertices and indices for axis
-	std::vector<Vertex> vertices_axis;
-	std::vector<uint32_t> indices_axis;
-
-	// vertex buffer for axis
-	VDeleter<VkBuffer> vertexBuffer_axis{ device, vkDestroyBuffer };
-	VDeleter<VkDeviceMemory> vertexBufferMemory_axis{ device, vkFreeMemory };
-
-	// index buffer for axis 
-	VDeleter<VkBuffer> indexBuffer_axis{ device, vkDestroyBuffer };
-	VDeleter<VkDeviceMemory> indexBufferMemory_axis{ device, vkFreeMemory };
+	} pipelines;
 
 
-	// vertices and indices for texutre quad
-	std::vector<Vertex> vertices_quad;
-	std::vector<uint32_t> indices_quad;
-
-	// vertex buffer
-	VDeleter<VkBuffer> vertexBuffer_quad{ device, vkDestroyBuffer };
-	VDeleter<VkDeviceMemory> vertexBufferMemory_quad{ device, vkFreeMemory };
-
-	// index buffer
-	VDeleter<VkBuffer> indexBuffer_quad{ device, vkDestroyBuffer };
-	VDeleter<VkDeviceMemory> indexBufferMemory_quad{ device, vkFreeMemory };
+	// Vertex/Index buffer struct
+	struct VertexBuffer { 
+		std::vector<Vertex> verticesData;
+		VkBuffer buffer;
+		VkDeviceMemory mem;
+	};
 
 
-	// uniform buffer 
-	VDeleter<VkBuffer> uniformStagingBuffer{ device, vkDestroyBuffer };
-	VDeleter<VkDeviceMemory> uniformStagingBufferMemory{ device, vkFreeMemory };
-	VDeleter<VkBuffer> uniformBuffer{ device, vkDestroyBuffer };
-	VDeleter<VkDeviceMemory> uniformBufferMemory{ device, vkFreeMemory };
+	struct IndexBuffer {
+		std::vector<uint32_t> indicesData;
+		VkBuffer buffer;
+		VkDeviceMemory mem;
+	};
 
-	// fragment shader light infos
-	VDeleter<VkBuffer> fragLightsStagingBuffer{ device, vkDestroyBuffer };
-	VDeleter<VkDeviceMemory> fragLightsStagingBufferMemory{ device, vkFreeMemory };
-	VDeleter<VkBuffer> fragLightsBuffer{ device, vkDestroyBuffer };
-	VDeleter<VkDeviceMemory> fragLightsBufferMemory{ device, vkFreeMemory };
+	struct Mesh {
+		VertexBuffer vertices;
+		IndexBuffer indices;
 
-	FragLightInfos fragLightInfos;
+		void cleanup(VkDevice device) {
+			vkDestroyBuffer(device, vertices.buffer, nullptr);
+			vkFreeMemory(device, vertices.mem, nullptr);
+			vkDestroyBuffer(device, indices.buffer, nullptr);
+			vkFreeMemory(device, indices.mem, nullptr);
+		}
+	};
+	
+	struct {
+		Mesh scene; // main scene mesh
+		Mesh axis; // axis mesh
+		Mesh quad; // quad mesh
 
-	// descriptor pool
-	VDeleter<VkDescriptorPool> descriptorPool{ device, vkDestroyDescriptorPool };
-	VkDescriptorSet descriptorSet;
+		void cleanup(VkDevice device) {
+			scene.cleanup(device);
+			axis.cleanup(device);
+			quad.cleanup(device);
+		}
+		
+	} meshs;
+	
 
-	// texture 
-	std::vector<VDeleter<VkImage>> textureImages{ 
-		VDeleter<VkImage> { device, vkDestroyImage},
-		VDeleter<VkImage> { device, vkDestroyImage} };
+	// Uniform buffers
+	struct UniformBuffer {
+		VkBuffer buffer;
+		VkDeviceMemory mem;
 
-	std::vector<VDeleter<VkDeviceMemory>> textureImageMemorys{
-		VDeleter<VkDeviceMemory> { device, vkFreeMemory },
-		VDeleter<VkDeviceMemory> { device, vkFreeMemory } };
+		void cleanup(VkDevice device) {
+			vkDestroyBuffer(device, buffer, nullptr);
+			vkFreeMemory(device, mem, nullptr);
+		}
+	};
+	UniformBuffer uniformBuffer, uniformStagingBuffer;
+	UniformBuffer fragLightsBuffer, fragLightsStagingBuffer;
 
-	std::vector<VDeleter<VkImageView>> textureImageViews{
-		VDeleter<VkImageView> { device, vkDestroyImageView },
-		VDeleter<VkImageView> { device, vkDestroyImageView } };
+	FragLightInfos fragLightInfos; // information of lights
 
-	std::vector<VDeleter<VkSampler>> textureSamplers{
-		VDeleter<VkSampler> { device, vkDestroySampler },
-		VDeleter<VkSampler> { device, vkDestroySampler } };
 
-	// depth image
-	VDeleter<VkImage> depthImage{ device, vkDestroyImage };
-	VDeleter<VkDeviceMemory> depthImageMemory{ device, vkFreeMemory };
-	VDeleter<VkImageView> depthImageView{ device, vkDestroyImageView };
+	// Textures 
+	struct Texture {
+		VkImage image;
+		VkImageView imageView;
+		VkDeviceMemory imageMemory;
+		VkSampler sampler;
+	};
+	std::array<Texture, 2> textures;
+
+	// Frame buffer attachment struct
+	struct FrameBufferAttachment {
+		VkImage image;
+		VkDeviceMemory mem;
+		VkImageView view;
+	};
+	FrameBufferAttachment depth;
 
 	// shader modules 
 	std::vector<VDeleter<VkShaderModule>> shaderModules;
-
 
 
 	/************************************************************/
@@ -312,10 +324,9 @@ private:
 
 	void createRenderPass();
 
-	void createVertexBuffer(std::vector<Vertex> & verticesData, VDeleter<VkBuffer>& buffer, VDeleter<VkDeviceMemory>& bufferMemory);
+	void createVertexBuffer(std::vector<Vertex> & verticesData, VkBuffer& buffer, VkDeviceMemory& bufferMemory);
 
-	// index buffer
-	void createIndexBuffer(std::vector<uint32_t> &indicesData, VDeleter<VkBuffer>& buffer, VDeleter<VkDeviceMemory>& bufferMemory);
+	void createIndexBuffer(std::vector<uint32_t> &indicesData, VkBuffer& buffer, VkDeviceMemory& bufferMemory);
 
 	void createSemaphores();
 
@@ -360,7 +371,7 @@ private:
 	uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties);
 
 	// abstracting buffer creation
-	void createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VDeleter<VkBuffer>& buffer, VDeleter<VkDeviceMemory>& bufferMemory);
+	void createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory);
 
 	// copy buffer from srcBuffer to dstBuffer
 	void copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
@@ -378,23 +389,19 @@ private:
 
 	void createDescriptorSet();
 
-	void createTextureImage(const std::string& texFilename, VDeleter<VkImage> & texImage, VDeleter<VkDeviceMemory> & texImageMemory);
+	void createTextureImage(const std::string& texFilename, VkImage & texImage, VkDeviceMemory & texImageMemory);
 
-	void createImage(uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VDeleter<VkImage>& image, VDeleter<VkDeviceMemory>& imageMemory);
+	void createImage(uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage & image, VkDeviceMemory & imageMemory);
 
 	void transitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout);
 
 	void copyImage(VkImage srcImage, VkImage dstImage, uint32_t width, uint32_t height);
 
-	VkCommandBuffer beginSingleTimeCommands();
+	void createImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags, VkImageView & imageView);
 
-	void endSingleTimeCommands(VkCommandBuffer commandBuffer);
+	void createTextureImageView(VkImage & textureImage, VkImageView & textureImageView);
 
-	void createImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags, VDeleter<VkImageView>& imageView);
-
-	void createTextureImageView(VDeleter<VkImage> & textureImage, VDeleter<VkImageView>& textureImageView);
-
-	void createTextureSampler(VDeleter<VkSampler> & textureSampler);
+	void createTextureSampler(VkSampler & textureSampler);
 
 	VkFormat findSupportedFormat(const std::vector<VkFormat>& candidates, VkImageTiling tiling, VkFormatFeatureFlags features);
 
@@ -409,11 +416,17 @@ private:
 	// load axis info
 	void loadAxisInfo();
 	
+	// assign vertex and index buffer for mesh
+	void createMeshBuffer(Mesh& mesh);
+
 	// load texture quad info 
 	void loadTextureQuad();
 
 	void prepareTextures();
 
+	VkCommandBuffer beginSingleTimeCommands();
+
+	void endSingleTimeCommands(VkCommandBuffer commandBuffer);
 };
 
 

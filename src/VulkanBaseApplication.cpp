@@ -87,10 +87,7 @@ VulkanBaseApplication::~VulkanBaseApplication() {
 	meshs.cleanup(device);
 
 	// cleanup uniform buffers
-	uniformBuffer.cleanup(device);
-	uniformStagingBuffer.cleanup(device);
-	fragLightsBuffer.cleanup(device);
-	fragLightsStagingBuffer.cleanup(device);
+	uniformData.cleanup(device);
 }
 
 void VulkanBaseApplication::initWindow() {
@@ -1227,32 +1224,19 @@ void VulkanBaseApplication::createDescriptorSetLayout() {
 
 void VulkanBaseApplication::createLightInfos() {
 
-
-	//fragLightInfos.lights[0].pos = glm::vec4(0.3f, 1, 1.2f, 1); 
-	//fragLightInfos.lights[0].color = glm::vec4(1, 0, 0, 1.5f); 
-
-	//fragLightInfos.lights[1].pos = glm::vec4(0.0f, 0.2f, 1.0f, 1.5f);
-	//fragLightInfos.lights[1].color = glm::vec4(0, 0, 1, 3.0f);
-
-	//fragLightInfos.lights[2].pos = glm::vec4(0, -1, -0.5f, 1);
-	//fragLightInfos.lights[2].color = glm::vec4(0, 1, 0, 1.5f);
-
-	//fragLightInfos.lights[3].pos = glm::vec4(-0.1f, 0.6f, -0.7f, 1);
-	//fragLightInfos.lights[3].color = glm::vec4(0.3f, 0.1f, 0.5f, 2.5f);
-
 	std::default_random_engine gen;
 	std::uniform_real_distribution<float> uniformDistribution(0.0f, 1.0f);
 
-	fragLightInfos.numLights = 8;
+	ubos.fsLights.numLights = 8;
 	float scale = 3.0f;
-	for (int i = 0; i < fragLightInfos.numLights; ++i) {
+	for (int i = 0; i < ubos.fsLights.numLights; ++i) {
 		float posX = uniformDistribution(gen) * 4.0f * scale - 2.0f * scale;
 		float posY = uniformDistribution(gen) * 2.0f - 1.0f;
 		float posZ = uniformDistribution(gen) * 2.0f * scale - scale;
 		float intensity = uniformDistribution(gen) * 0.8f;
-		fragLightInfos.lights[i].pos = glm::vec4(posX, posY, posZ, intensity);
+		ubos.fsLights.lights[i].pos = glm::vec4(posX, posY, posZ, intensity);
 
-		fragLightInfos.lights[i].color = glm::vec4(
+		ubos.fsLights.lights[i].color = glm::vec4(
 			uniformDistribution(gen),
 			uniformDistribution(gen),
 			uniformDistribution(gen),
@@ -1264,15 +1248,43 @@ void VulkanBaseApplication::createLightInfos() {
 
 
 void VulkanBaseApplication::createUniformBuffer() {
-	VkDeviceSize bufferSize = sizeof(UniformBufferObject);
+	//VkDeviceSize bufferSize = sizeof(UniformBufferObject);
 
-	createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, uniformStagingBuffer.buffer, uniformStagingBuffer.mem);
-	createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, uniformBuffer.buffer, uniformBuffer.mem);
+	//createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, uniformStagingBuffer.buffer, uniformStagingBuffer.memory);
+	//createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, uniformBuffer.buffer, uniformBuffer.memory);
 
-	bufferSize = sizeof(FragLightInfos);
+	//bufferSize = sizeof(FragLightInfos);
 
-	createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, fragLightsStagingBuffer.buffer, fragLightsStagingBuffer.mem);
-	createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, fragLightsBuffer.buffer, fragLightsBuffer.mem);
+	//createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, fragLightsStagingBuffer.buffer, fragLightsStagingBuffer.memory);
+	//createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, fragLightsBuffer.buffer, fragLightsBuffer.memory);
+
+	// vs scene
+	VkDeviceSize bufferSize = sizeof(UBO_vsScene);
+	uniformData.vsSceneStaging.allocSize = bufferSize;
+	createBuffer(bufferSize, 
+		VK_BUFFER_USAGE_TRANSFER_SRC_BIT, 
+		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, 
+		uniformData.vsSceneStaging.buffer, uniformData.vsSceneStaging.memory);
+
+	uniformData.vsScene.allocSize = bufferSize;
+	createBuffer(bufferSize, 
+		VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, 
+		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, 
+		uniformData.vsScene.buffer, uniformData.vsScene.memory);
+
+	// fs lights
+	bufferSize = sizeof(UBO_fsLights);
+	uniformData.fsLightsStaging.allocSize = bufferSize;
+	createBuffer(bufferSize, 
+		VK_BUFFER_USAGE_TRANSFER_SRC_BIT, 
+		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, 
+		uniformData.fsLightsStaging.buffer, uniformData.fsLightsStaging.memory);
+
+	uniformData.fsLights.allocSize = bufferSize;
+	createBuffer(bufferSize,
+		VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, 
+		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+		uniformData.fsLights.buffer, uniformData.fsLights.memory);
 
 }
 
@@ -1285,52 +1297,54 @@ void VulkanBaseApplication::updateUniformBuffer() {
 	auto currentTime = std::chrono::high_resolution_clock::now();
 	float time = std::chrono::duration_cast<std::chrono::milliseconds>(currentTime - startTime).count() / 1000.0f;
 
-	UniformBufferObject ubo = {};
+	UBO_vsScene & vsScene = ubos.vsScene;
 
 	// update model rotations
 	//ubo.model = glm::rotate(glm::mat4(), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
 	//ubo.model = glm::rotate(glm::mat4(), modelRotAngles.x , glm::vec3(0.0f, 0.0f, 1.0f)) * glm::rotate(glm::mat4(), modelRotAngles.y, glm::vec3(0.0f, 1.0f, 0.0f));
-	ubo.model = glm::translate(glm::mat4(), glm::vec3(0, 4, 0));
+	vsScene.model = glm::translate(glm::mat4(), glm::vec3(0, 4, 0));
 
 	// update camera rotations
 	//glm::vec4 rotCameraPos = glm::vec4(cameraPos, 1.0f);
 	//rotCameraPos = glm::rotate(glm::mat4(), -cameraRotAngles.x, glm::vec3(0.0f, 0.0f, 1.0f)) * rotCameraPos;
 	//ubo.view = glm::lookAt(glm::vec3(rotCameraPos), glm::vec3(0,0,0), glm::vec3(0.0f, 1.0f, 0.0f));
-	ubo.view = glm::lookAt(cameraPos, glm::vec3(0, 0, 0), glm::vec3(0.0f, 1.0f, 0.0f));
+	vsScene.view = glm::lookAt(cameraPos, glm::vec3(0, 0, 0), glm::vec3(0.0f, 1.0f, 0.0f));
 
 	// projection matrix
-	ubo.proj = glm::perspective(glm::radians(45.0f), swapChainExtent.width / (float)swapChainExtent.height, 0.01f, 100.0f);
-	ubo.proj[1][1] *= -1;
+	vsScene.proj = glm::perspective(glm::radians(45.0f), swapChainExtent.width / (float)swapChainExtent.height, 0.01f, 100.0f);
+	vsScene.proj[1][1] *= -1;
 
 	// cameraPos
-	ubo.cameraPos = glm::vec4(cameraPos, 1.0f);
+	vsScene.cameraPos = glm::vec4(cameraPos, 1.0f);
 
 	// copy data to buffer memory
 	void* data;
-	vkMapMemory(device, uniformStagingBuffer.mem, 0, sizeof(ubo), 0, &data);
-		memcpy(data, &ubo, sizeof(ubo));
-	vkUnmapMemory(device, uniformStagingBuffer.mem);
+	VkDeviceSize & bufferSize = uniformData.vsSceneStaging.allocSize;
+	vkMapMemory(device, uniformData.vsSceneStaging.memory, 0, bufferSize, 0, &data);
+		memcpy(data, &vsScene, bufferSize);
+	vkUnmapMemory(device, uniformData.vsSceneStaging.memory);
 
-	copyBuffer(uniformStagingBuffer.buffer, uniformBuffer.buffer, sizeof(ubo));
+	copyBuffer(uniformData.vsSceneStaging.buffer, uniformData.vsScene.buffer, bufferSize);
 
 
 	//--------------------- update frag uniform buffer (lights)----------------------------------
+	UBO_fsLights & fsLights = ubos.fsLights;
+	for (int i = 0; i < fsLights.numLights; ++i) {
+		fsLights.lights[i].pos.y += 0.0015f * ((float)lightMoveDirs[i] * 2.0f - 1.0f);
 
-	for (int i = 0; i < fragLightInfos.numLights; ++i) {
-		fragLightInfos.lights[i].pos.y += 0.0015f * ((float)lightMoveDirs[i] * 2.0f - 1.0f);
-
-		if (fragLightInfos.lights[i].pos.y > 1.0f || fragLightInfos.lights[i].pos.y < -2.0f)
+		if (fsLights.lights[i].pos.y > 1.0f || fsLights.lights[i].pos.y < -2.0f)
 		{
 			//fragLightInfos.lights[i].pos.y = 2.0f;
 			lightMoveDirs[i] = !lightMoveDirs[i];
 		}
 	}
 
-	vkMapMemory(device, fragLightsStagingBuffer.mem, 0, sizeof(fragLightInfos), 0, &data);
-		memcpy(data, &fragLightInfos, sizeof(fragLightInfos));
-	vkUnmapMemory(device, fragLightsStagingBuffer.mem);
+	bufferSize = uniformData.fsLightsStaging.allocSize;
+	vkMapMemory(device, uniformData.fsLightsStaging.memory, 0, bufferSize, 0, &data);
+		memcpy(data, &fsLights, bufferSize);
+	vkUnmapMemory(device, uniformData.fsLightsStaging.memory);
 
-	copyBuffer(fragLightsStagingBuffer.buffer, fragLightsBuffer.buffer, sizeof(fragLightInfos));
+	copyBuffer(uniformData.fsLightsStaging.buffer, uniformData.fsLights.buffer, bufferSize);
 }
 
 
@@ -1371,15 +1385,15 @@ void VulkanBaseApplication::createDescriptorSet() {
 	}
 
 
-	VkDescriptorBufferInfo bufferInfo = {};
-	bufferInfo.buffer = uniformBuffer.buffer;
-	bufferInfo.offset = 0;
-	bufferInfo.range = sizeof(UniformBufferObject);
+	VkDescriptorBufferInfo vsSceneDescriptorInfo = {};
+	vsSceneDescriptorInfo.buffer = uniformData.vsScene.buffer;
+	vsSceneDescriptorInfo.offset = 0;
+	vsSceneDescriptorInfo.range = uniformData.vsScene.allocSize;
 
-	VkDescriptorBufferInfo lightsBufferInfo = {};
-	lightsBufferInfo.buffer = fragLightsBuffer.buffer;
-	lightsBufferInfo.offset = 0;
-	lightsBufferInfo.range = sizeof(FragLightInfos);
+	VkDescriptorBufferInfo fsLightsDescriptorInfo = {};
+	fsLightsDescriptorInfo.buffer = uniformData.fsLights.buffer;
+	fsLightsDescriptorInfo.offset = 0;
+	fsLightsDescriptorInfo.range = uniformData.fsLights.allocSize;
 
 	std::array<VkDescriptorImageInfo, 2> imageInfo = {};
 	imageInfo[0].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
@@ -1398,7 +1412,7 @@ void VulkanBaseApplication::createDescriptorSet() {
 	descriptorWrites[0].dstArrayElement = 0;
 	descriptorWrites[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
 	descriptorWrites[0].descriptorCount = 1;
-	descriptorWrites[0].pBufferInfo = &bufferInfo;
+	descriptorWrites[0].pBufferInfo = &vsSceneDescriptorInfo;
 
 	descriptorWrites[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
 	descriptorWrites[1].dstSet = descriptorSet;
@@ -1422,7 +1436,7 @@ void VulkanBaseApplication::createDescriptorSet() {
 	descriptorWrites[3].dstArrayElement = 0;
 	descriptorWrites[3].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
 	descriptorWrites[3].descriptorCount = 1;
-	descriptorWrites[3].pBufferInfo = &lightsBufferInfo;
+	descriptorWrites[3].pBufferInfo = &fsLightsDescriptorInfo;
 
 	vkUpdateDescriptorSets(device, (uint32_t)descriptorWrites.size(), descriptorWrites.data(), 0, nullptr);
 }

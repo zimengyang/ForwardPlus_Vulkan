@@ -47,17 +47,32 @@ const std::string TEXTURE_PATH1 = "../src/models/chalet/chalet.jpg";
 const std::string TEXTURE_PATH2 = "../src/textures/bald_eagle_1280.jpg";
 const std::vector<std::string> TEXTURES_PATH = { TEXTURE_PATH1 ,TEXTURE_PATH2 };
 
-
 const std::vector<const char*> validationLayers = {
 	"VK_LAYER_LUNARG_standard_validation"
 };
+
 
 const std::vector<const char*> deviceExtensions = {
 	VK_KHR_SWAPCHAIN_EXTENSION_NAME
 };
 
 
-// structs 
+struct QueueFamilyIndices {
+	int graphicsFamily = -1;
+	int presentFamily = -1;
+
+	bool isComplete() {
+		return graphicsFamily >= 0 && presentFamily >= 0;
+	}
+};
+
+
+struct SwapChainSupportDetails {
+	VkSurfaceCapabilitiesKHR capabilities;
+	std::vector<VkSurfaceFormatKHR> formats;
+	std::vector<VkPresentModeKHR> presentModes;
+};
+
 struct Vertex {
 	glm::vec3 pos;
 	glm::vec3 color;
@@ -101,40 +116,6 @@ struct Vertex {
 		return pos == other.pos && color == other.color && texCoord == other.texCoord && normal == other.normal;
 	}
 
-};
-
-struct UniformBufferObject {
-	glm::mat4 model;
-	glm::mat4 view;
-	glm::mat4 proj;
-	glm::vec4 cameraPos;
-};
-
-struct LightInfo {
-	glm::vec4 pos; // pos.w = intensity
-	glm::vec4 color; // color.w = radius
-};
-
-struct QueueFamilyIndices {
-	int graphicsFamily = -1;
-	int presentFamily = -1;
-
-	bool isComplete() {
-		return graphicsFamily >= 0 && presentFamily >= 0;
-	}
-};
-
-struct SwapChainSupportDetails {
-	VkSurfaceCapabilitiesKHR capabilities;
-	std::vector<VkSurfaceFormatKHR> formats;
-	std::vector<VkPresentModeKHR> presentModes;
-};
-
-
-#define MAX_NUM_LIGHT 100
-struct FragLightInfos {
-	LightInfo lights[MAX_NUM_LIGHT];
-	int numLights;
 };
 
 
@@ -252,21 +233,56 @@ private:
 	
 
 	// Uniform buffers
-	struct UniformBuffer {
+	struct UniformData {
 		VkBuffer buffer;
-		VkDeviceMemory mem;
+		VkDeviceMemory memory;
+		//VkDescriptorBufferInfo descriptor;
+		VkDeviceSize allocSize;
 
 		void cleanup(VkDevice device) {
 			vkDestroyBuffer(device, buffer, nullptr);
-			vkFreeMemory(device, mem, nullptr);
+			vkFreeMemory(device, memory, nullptr);
 		}
 	};
-	UniformBuffer uniformBuffer, uniformStagingBuffer;
-	UniformBuffer fragLightsBuffer, fragLightsStagingBuffer;
 
-	FragLightInfos fragLightInfos; // information of lights
+	struct {
+		UniformData vsScene, vsSceneStaging;
+		UniformData fsLights, fsLightsStaging;
 
+		void cleanup(VkDevice device) {
+			vsScene.cleanup(device);
+			vsSceneStaging.cleanup(device);
+			fsLights.cleanup(device);
+			fsLightsStaging.cleanup(device);
+		}
+	} uniformData;
 
+	// uniform buffer object for vertex shader 
+	struct UBO_vsScene {
+		glm::mat4 model;
+		glm::mat4 view;
+		glm::mat4 proj;
+		glm::vec4 cameraPos;
+	};
+
+	struct LightInfo {
+		glm::vec4 pos; // pos.w = intensity
+		glm::vec4 color; // color.w = radius
+	};
+
+	// uniform buffer object for fragment shader (lights)
+	#define MAX_NUM_LIGHT 100
+	struct UBO_fsLights {
+		LightInfo lights[MAX_NUM_LIGHT];
+		int numLights;
+	};
+
+	// encapsulate uniform buffer objects
+	struct {
+		UBO_vsScene vsScene;
+		UBO_fsLights fsLights;
+	} ubos;
+	
 	// Textures 
 	struct Texture {
 		VkImage image;

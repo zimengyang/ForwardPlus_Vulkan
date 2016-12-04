@@ -36,7 +36,7 @@ VkResult CreateDebugReportCallbackEXT(VkInstance instance, const VkDebugReportCa
 void DestroyDebugReportCallbackEXT(VkInstance instance, VkDebugReportCallbackEXT callback, const VkAllocationCallbacks* pAllocator);
 
 
-// const variables 
+// const variables
 extern const int WIDTH;
 extern const int HEIGHT;
 
@@ -149,16 +149,16 @@ private:
 	VkFormat swapChainImageFormat;
 	VkExtent2D swapChainExtent;
 	// swap chain image views
-	std::vector<VkImageView> swapChainImageViews; 
+	std::vector<VkImageView> swapChainImageViews;
 	// swap chian frame buffers
 	std::vector<VDeleter<VkFramebuffer>> swapChainFramebuffers;
 
 	// Pipeline layout
 	VDeleter<VkPipelineLayout> pipelineLayout{ device, vkDestroyPipelineLayout };
 
-	// Descriptor pool 
+	// Descriptor pool
 	VDeleter<VkDescriptorPool> descriptorPool{ device, vkDestroyDescriptorPool };
-	
+
 	// Descriptor set layout and descriptor set
 	VDeleter<VkDescriptorSetLayout> descriptorSetLayout{ device, vkDestroyDescriptorSetLayout };
 	VkDescriptorSet descriptorSet;
@@ -180,7 +180,7 @@ private:
 	// Pipeline(s)
 	struct Pipelines{
 		VkPipeline graphics; // base pipeline
-		VkPipeline axis; // axis pipeline 
+		VkPipeline axis; // axis pipeline
 		VkPipeline quad; // quad pipeline
 
 		void cleanup(VkDevice device) {
@@ -193,7 +193,7 @@ private:
 
 
 	// Vertex/Index buffer struct
-	struct VertexBuffer { 
+	struct VertexBuffer {
 		std::vector<Vertex> verticesData;
 		VkBuffer buffer;
 		VkDeviceMemory mem;
@@ -217,7 +217,7 @@ private:
 			vkFreeMemory(device, indices.mem, nullptr);
 		}
 	};
-	
+
 	struct {
 		Mesh scene; // main scene mesh
 		Mesh axis; // axis mesh
@@ -228,9 +228,9 @@ private:
 			axis.cleanup(device);
 			quad.cleanup(device);
 		}
-		
+
 	} meshs;
-	
+
 
 	// Uniform buffers
 	struct UniformData {
@@ -257,7 +257,7 @@ private:
 		}
 	} uniformData;
 
-	// uniform buffer object for vertex shader 
+	// uniform buffer object for vertex shader
 	struct UBO_vsScene {
 		glm::mat4 model;
 		glm::mat4 view;
@@ -282,8 +282,8 @@ private:
 		UBO_vsScene vsScene;
 		UBO_fsLights fsLights;
 	} ubos;
-	
-	// Textures 
+
+	// Textures
 	struct Texture {
 		VkImage image;
 		VkImageView imageView;
@@ -300,20 +300,22 @@ private:
 	};
 	FrameBufferAttachment depth;
 
-	// shader modules 
+	// shader modules
 	std::vector<VDeleter<VkShaderModule>> shaderModules;
 
 
 	/************************************************************/
-	//					Function Declaration 
+	//					Function Declaration
 	/************************************************************/
 	void initWindow();
 
+	void initVulkan();
+
 	void mainLoop();
 
-	void drawFrame();
+	void updateUniformBuffer();
 
-	void initVulkan();
+	void drawFrame();
 
 	// Create Vulkan instance
 	void createInstance();
@@ -321,7 +323,7 @@ private:
 	void setupDebugCallback();
 
 	void createSurface();
-	
+
 	void pickPhysicalDevice();
 
 	void createLogicalDevice();
@@ -333,7 +335,7 @@ private:
 	void createGraphicsPipeline();
 
 	void createFramebuffers();
-	
+
 	void createCommandPool();
 
 	void createCommandBuffers();
@@ -399,8 +401,6 @@ private:
 
 	void createUniformBuffer();
 
-	void updateUniformBuffer();
-
 	void createDescriptorPool();
 
 	void createDescriptorSet();
@@ -431,11 +431,11 @@ private:
 
 	// load axis info
 	void loadAxisInfo();
-	
+
 	// assign vertex and index buffer for mesh
 	void createMeshBuffer(Mesh& mesh);
 
-	// load texture quad info 
+	// load texture quad info
 	void loadTextureQuad();
 
 	void prepareTextures();
@@ -451,4 +451,3 @@ void cursorPosCallback(GLFWwindow* window, double xPos, double yPos);
 void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods);
 void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods);
 void scrollCallback(GLFWwindow* window, double xoffset, double yoffset);
-

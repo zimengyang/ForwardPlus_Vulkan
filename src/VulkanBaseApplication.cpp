@@ -1,7 +1,7 @@
 #include "VulkanBaseApplication.h"
 
 #define _USE_MATH_DEFINES
-#include <cmath> 
+#include <cmath>
 
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
@@ -36,7 +36,7 @@ glm::vec3 cameraPos;
 glm::vec3 lookAtDir;
 glm::vec2 cameraRotAngles; // for camera rotation
 
-						   // deubg mode int
+// deubg mode int
 float debugMode;
 
 
@@ -75,7 +75,7 @@ VulkanBaseApplication::~VulkanBaseApplication() {
 		vkDestroyImageView(device, imageView, nullptr);
 	}
 
-	//  textures 
+	//  textures
 	for (auto texture : textures) {
 		vkDestroyImageView(device, texture.imageView, nullptr);
 		vkDestroyImage(device, texture.image, nullptr);
@@ -108,7 +108,6 @@ void VulkanBaseApplication::initWindow() {
 	glfwSetScrollCallback(window, scrollCallback);
 }
 
-
 void VulkanBaseApplication::mainLoop() {
 	while (!glfwWindowShouldClose(window)) {
 		glfwPollEvents();
@@ -118,6 +117,64 @@ void VulkanBaseApplication::mainLoop() {
 	}
 
 	vkDeviceWaitIdle(device);
+}
+
+void VulkanBaseApplication::updateUniformBuffer() {
+
+	//--------------------- update vertex uniform buffer----------------------------------
+	static auto startTime = std::chrono::high_resolution_clock::now();
+
+	auto currentTime = std::chrono::high_resolution_clock::now();
+	float time = std::chrono::duration_cast<std::chrono::milliseconds>(currentTime - startTime).count() / 1000.0f;
+
+	UBO_vsScene & vsScene = ubos.vsScene;
+
+	// update model rotations
+	//ubo.model = glm::rotate(glm::mat4(), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+	//ubo.model = glm::rotate(glm::mat4(), modelRotAngles.x , glm::vec3(0.0f, 0.0f, 1.0f)) * glm::rotate(glm::mat4(), modelRotAngles.y, glm::vec3(0.0f, 1.0f, 0.0f));
+	vsScene.model = glm::translate(glm::mat4(), glm::vec3(0, 4, 0));
+
+	// update camera rotations
+	//glm::vec4 rotCameraPos = glm::vec4(cameraPos, 1.0f);
+	//rotCameraPos = glm::rotate(glm::mat4(), -cameraRotAngles.x, glm::vec3(0.0f, 0.0f, 1.0f)) * rotCameraPos;
+	//ubo.view = glm::lookAt(glm::vec3(rotCameraPos), glm::vec3(0,0,0), glm::vec3(0.0f, 1.0f, 0.0f));
+	vsScene.view = glm::lookAt(cameraPos, glm::vec3(0, 0, 0), glm::vec3(0.0f, 1.0f, 0.0f));
+
+	// projection matrix
+	vsScene.proj = glm::perspective(glm::radians(45.0f), swapChainExtent.width / (float)swapChainExtent.height, 0.01f, 100.0f);
+	vsScene.proj[1][1] *= -1;
+
+	// cameraPos
+	vsScene.cameraPos = glm::vec4(cameraPos, 1.0f);
+
+	// copy data to buffer memory
+	void* data;
+	VkDeviceSize & bufferSize = uniformData.vsSceneStaging.allocSize;
+	vkMapMemory(device, uniformData.vsSceneStaging.memory, 0, bufferSize, 0, &data);
+		memcpy(data, &vsScene, bufferSize);
+	vkUnmapMemory(device, uniformData.vsSceneStaging.memory);
+
+	copyBuffer(uniformData.vsSceneStaging.buffer, uniformData.vsScene.buffer, bufferSize);
+
+
+	//--------------------- update frag uniform buffer (lights)----------------------------------
+	UBO_fsLights & fsLights = ubos.fsLights;
+	for (int i = 0; i < fsLights.numLights; ++i) {
+		fsLights.lights[i].pos.y += 0.0015f * ((float)lightMoveDirs[i] * 2.0f - 1.0f);
+
+		if (fsLights.lights[i].pos.y > 1.0f || fsLights.lights[i].pos.y < -2.0f)
+		{
+			//fragLightInfos.lights[i].pos.y = 2.0f;
+			lightMoveDirs[i] = !lightMoveDirs[i];
+		}
+	}
+
+	bufferSize = uniformData.fsLightsStaging.allocSize;
+	vkMapMemory(device, uniformData.fsLightsStaging.memory, 0, bufferSize, 0, &data);
+		memcpy(data, &fsLights, bufferSize);
+	vkUnmapMemory(device, uniformData.fsLightsStaging.memory);
+
+	copyBuffer(uniformData.fsLightsStaging.buffer, uniformData.fsLights.buffer, bufferSize);
 }
 
 
@@ -177,7 +234,7 @@ void VulkanBaseApplication::initVulkan() {
 	createDepthResources();
 	createFramebuffers();
 	prepareTextures();
-	
+
 	// load data -> create vertex and index buffer
 	loadModel(meshs.scene.vertices.verticesData, meshs.scene.indices.indicesData, MODEL_PATH, 0.4f);
 	createMeshBuffer(meshs.scene);
@@ -187,7 +244,7 @@ void VulkanBaseApplication::initVulkan() {
 
 	loadTextureQuad();
 	createMeshBuffer(meshs.quad);
-	
+
 	// light information
 	createLightInfos();
 
@@ -539,7 +596,7 @@ void VulkanBaseApplication::createGraphicsPipeline()
 #pragma endregion
 
 
-#pragma region Pipeline Layout 
+#pragma region Pipeline Layout
 	// pipeline layout object
 	VkPipelineLayoutCreateInfo pipelineLayoutInfo = {};
 	VkDescriptorSetLayout setLayouts[] = { descriptorSetLayout };
@@ -775,7 +832,7 @@ void VulkanBaseApplication::createRenderPass() {
 	depthAttachmentRef.attachment = 1;
 	depthAttachmentRef.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
-	// subpass 
+	// subpass
 	VkSubpassDescription subPass = {};
 	subPass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
 	subPass.colorAttachmentCount = 1;
@@ -1261,90 +1318,31 @@ void VulkanBaseApplication::createUniformBuffer() {
 	// vs scene
 	VkDeviceSize bufferSize = sizeof(UBO_vsScene);
 	uniformData.vsSceneStaging.allocSize = bufferSize;
-	createBuffer(bufferSize, 
-		VK_BUFFER_USAGE_TRANSFER_SRC_BIT, 
-		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, 
+	createBuffer(bufferSize,
+		VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
 		uniformData.vsSceneStaging.buffer, uniformData.vsSceneStaging.memory);
 
 	uniformData.vsScene.allocSize = bufferSize;
-	createBuffer(bufferSize, 
-		VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, 
-		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, 
+	createBuffer(bufferSize,
+		VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
 		uniformData.vsScene.buffer, uniformData.vsScene.memory);
 
 	// fs lights
 	bufferSize = sizeof(UBO_fsLights);
 	uniformData.fsLightsStaging.allocSize = bufferSize;
-	createBuffer(bufferSize, 
-		VK_BUFFER_USAGE_TRANSFER_SRC_BIT, 
-		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, 
+	createBuffer(bufferSize,
+		VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
 		uniformData.fsLightsStaging.buffer, uniformData.fsLightsStaging.memory);
 
 	uniformData.fsLights.allocSize = bufferSize;
 	createBuffer(bufferSize,
-		VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, 
+		VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
 		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
 		uniformData.fsLights.buffer, uniformData.fsLights.memory);
 
-}
-
-
-void VulkanBaseApplication::updateUniformBuffer() {
-
-	//--------------------- update vertex uniform buffer----------------------------------
-	static auto startTime = std::chrono::high_resolution_clock::now();
-
-	auto currentTime = std::chrono::high_resolution_clock::now();
-	float time = std::chrono::duration_cast<std::chrono::milliseconds>(currentTime - startTime).count() / 1000.0f;
-
-	UBO_vsScene & vsScene = ubos.vsScene;
-
-	// update model rotations
-	//ubo.model = glm::rotate(glm::mat4(), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-	//ubo.model = glm::rotate(glm::mat4(), modelRotAngles.x , glm::vec3(0.0f, 0.0f, 1.0f)) * glm::rotate(glm::mat4(), modelRotAngles.y, glm::vec3(0.0f, 1.0f, 0.0f));
-	vsScene.model = glm::translate(glm::mat4(), glm::vec3(0, 4, 0));
-
-	// update camera rotations
-	//glm::vec4 rotCameraPos = glm::vec4(cameraPos, 1.0f);
-	//rotCameraPos = glm::rotate(glm::mat4(), -cameraRotAngles.x, glm::vec3(0.0f, 0.0f, 1.0f)) * rotCameraPos;
-	//ubo.view = glm::lookAt(glm::vec3(rotCameraPos), glm::vec3(0,0,0), glm::vec3(0.0f, 1.0f, 0.0f));
-	vsScene.view = glm::lookAt(cameraPos, glm::vec3(0, 0, 0), glm::vec3(0.0f, 1.0f, 0.0f));
-
-	// projection matrix
-	vsScene.proj = glm::perspective(glm::radians(45.0f), swapChainExtent.width / (float)swapChainExtent.height, 0.01f, 100.0f);
-	vsScene.proj[1][1] *= -1;
-
-	// cameraPos
-	vsScene.cameraPos = glm::vec4(cameraPos, 1.0f);
-
-	// copy data to buffer memory
-	void* data;
-	VkDeviceSize & bufferSize = uniformData.vsSceneStaging.allocSize;
-	vkMapMemory(device, uniformData.vsSceneStaging.memory, 0, bufferSize, 0, &data);
-		memcpy(data, &vsScene, bufferSize);
-	vkUnmapMemory(device, uniformData.vsSceneStaging.memory);
-
-	copyBuffer(uniformData.vsSceneStaging.buffer, uniformData.vsScene.buffer, bufferSize);
-
-
-	//--------------------- update frag uniform buffer (lights)----------------------------------
-	UBO_fsLights & fsLights = ubos.fsLights;
-	for (int i = 0; i < fsLights.numLights; ++i) {
-		fsLights.lights[i].pos.y += 0.0015f * ((float)lightMoveDirs[i] * 2.0f - 1.0f);
-
-		if (fsLights.lights[i].pos.y > 1.0f || fsLights.lights[i].pos.y < -2.0f)
-		{
-			//fragLightInfos.lights[i].pos.y = 2.0f;
-			lightMoveDirs[i] = !lightMoveDirs[i];
-		}
-	}
-
-	bufferSize = uniformData.fsLightsStaging.allocSize;
-	vkMapMemory(device, uniformData.fsLightsStaging.memory, 0, bufferSize, 0, &data);
-		memcpy(data, &fsLights, bufferSize);
-	vkUnmapMemory(device, uniformData.fsLightsStaging.memory);
-
-	copyBuffer(uniformData.fsLightsStaging.buffer, uniformData.fsLights.buffer, bufferSize);
 }
 
 
@@ -1815,7 +1813,7 @@ void VulkanBaseApplication::createMeshBuffer(Mesh & mesh)
 }
 
 
-// load texture quad info 
+// load texture quad info
 void VulkanBaseApplication::loadTextureQuad() {
 
 	const float x = 1.5f;

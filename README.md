@@ -9,7 +9,7 @@ Forward Plus Rendering in Vulkan
 # Forward Plus Rendering
 
 ## Forward+ Overview
-Forward+ improves upon regular forward rendering by first determining which lights are overlapping which area in screen space. During the shading phase, only the lights that are potentially overlapping the current fragment need to be considered. 
+Forward+ improves upon regular forward rendering by first determining which lights are overlapping which area in screen space. During the shading phase, only the lights that are potentially overlapping the current fragment need to be considered.
 
 ## Main Procedures
 
@@ -31,7 +31,7 @@ We need compute shaders to compute and grid frustums for each screen tile.
 
 ### Light culling
 
-In the next step of the Forward+ rendering technique is to cull the lights using the grid frustums that were computed in the previous section. 
+In the next step of the Forward+ rendering technique is to cull the lights using the grid frustums that were computed in the previous section.
 
 Basic algorithm for light culling:
 
@@ -44,21 +44,26 @@ Basic algorithm for light culling:
 **Frustum-sphere** for points lights, **Frustum-cone** for spot lights.
 
 
-# Vulkan 
+# Vulkan
 
 
 
-## Milestone 
+## Milestone
 * 11/21 Basic Vulkan Application Framework
 ![basic_vulkan](./img/readme/vulkanBase.png)
- * Vulkan environment setup and initialization
- * Basic rendering pipelines (multiple)
- * Vertex and index buffers (multiple)
- * Texture mapping (multiple) and model loading
- * Basic camera control
+  * Vulkan environment setup and initialization
+  * Basic rendering pipelines (multiple)
+  * Vertex and index buffers (multiple)
+  * Texture mapping (multiple) and model loading
+  * Basic camera control
+  * [Presentation Slides](./img/slides/milestone1.pdf)
 
 * 11/28 Basic Lighting in Vulkan / Debug Views
 ![basic_lighting](./img/basic_lighting.gif)
+  * Debug views: depth, normal
+  * Basic lighting: Lambert, Blinn-Phong
+  * Compute pipeline in progress
+  * [Presentation Slides](./img/slides/milestone2.pdf)
 
 debug views:
 
@@ -70,6 +75,5 @@ debug views:
 # References:
 1. [Vulkan Tutorial](https://vulkan-tutorial.com/)
 2. [Vulkan Examples](https://github.com/SaschaWillems/Vulkan)
-3. [Forward Plus Rendering](http://www.3dgep.com/forward-plus/) 
+3. [Forward Plus Rendering](http://www.3dgep.com/forward-plus/)
 4. [Graphics Models](http://graphics.cs.williams.edu/data/meshes.xml)
-

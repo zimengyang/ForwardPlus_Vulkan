@@ -249,6 +249,8 @@ void VulkanBaseApplication::initVulkan() {
 	createLightInfos();
 
 	createUniformBuffer();
+	createStorageBuffer();
+	initStorageBuffer();
 	createDescriptorPool();
 	createDescriptorSet();
 	createCommandBuffers();
@@ -1301,6 +1303,24 @@ void VulkanBaseApplication::createLightInfos() {
 
 		lightMoveDirs[i] = false;
 	}
+
+	std::default_random_engine g;
+	std::uniform_real_distribution<float> u(0.f, 1.f);
+
+	sbos.lights.numLights = 8;
+	scale = 3.f;
+	for (int i = 0; i < sbos.lights.numLights; ++i) {
+		float posX = u(g) * 4.f * scale - 2.f * scale;
+		float posY = u(g) * 2.f - 1.f;
+		float posZ = u(g) * 2.f * scale - scale;
+		float intensity = u(g) * .8f;
+
+		sbos.lights.lights[i].beginPos = glm::vec4(posX, posY, posZ, intensity);
+		sbos.lights.lights[i].endPos = sbos.lights.lights[i].beginPos;
+		sbos.lights.lights[i].endPos.y = u(g) * 2.f - 1.f;
+		sbos.lights.lights[i].endPos.w = u(g) * 2.0f * scale;
+		sbos.lights.lights[i].color = glm::vec4(u(g), u(g), u(g), 0.f);
+	}
 }
 
 
@@ -1345,6 +1365,33 @@ void VulkanBaseApplication::createUniformBuffer() {
 
 }
 
+void VulkanBaseApplication::createStorageBuffer() {
+	VkDeviceSize bufferSize = sizeof(SBO_lights);
+
+	storageData.lightsStaging.allocSize = bufferSize;
+	createBuffer(bufferSize,
+		VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+		storageData.lightsStaging.buffer, storageData.lightsStaging.memory);
+
+	storageData.lights.allocSize = bufferSize;
+	createBuffer(bufferSize,
+		VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+		storageData.lights.buffer, storageData.lights.memory);
+}
+
+void VulkanBaseApplication::initStorageBuffer() {
+	SBO_lights &lights = sbos.lights;
+	VkDeviceSize bufferSize = storageData.lightsStaging.allocSize;
+	void* data;
+
+	vkMapMemory(device, storageData.lightsStaging.memory, 0, bufferSize, 0, &data);
+	memcpy(data, &lights, bufferSize);
+	vkUnmapMemory(device, storageData.lightsStaging.memory);
+
+	copyBuffer(storageData.lightsStaging.buffer, storageData.lights.buffer, bufferSize);
+}
 
 void VulkanBaseApplication::createDescriptorPool() {
 

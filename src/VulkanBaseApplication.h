@@ -257,6 +257,26 @@ private:
 		}
 	} uniformData;
 
+	struct StorageData {
+		VkBuffer buffer;
+		VkDeviceMemory memory;
+		VkDeviceSize allocSize;
+
+		void cleanup(VkDevice device) {
+			vkDestroyBuffer(device, buffer, nullptr);
+			vkFreeMemory(device, memory, nullptr);
+		}
+	};
+
+	struct {
+		StorageData lights, lightsStaging;
+
+		void cleanup(VkDevice device) {
+			lights.cleanup(device);
+			lightsStaging.cleanup(device);
+		}
+	} storageData;
+
 	// uniform buffer object for vertex shader
 	struct UBO_vsScene {
 		glm::mat4 model;
@@ -270,10 +290,22 @@ private:
 		glm::vec4 color; // color.w = radius
 	};
 
+	struct LightStruct {
+		glm::vec4 beginPos; // beginPos.w = intensity
+		glm::vec4 endPos; // endPos.w = radius
+		glm::vec4 color; // color.w = t
+	};
+
 	// uniform buffer object for fragment shader (lights)
 	#define MAX_NUM_LIGHT 100
 	struct UBO_fsLights {
 		LightInfo lights[MAX_NUM_LIGHT];
+		int numLights;
+	};
+
+	// storage buffer object to store lights
+	struct SBO_lights {
+		LightStruct lights[MAX_NUM_LIGHT];
 		int numLights;
 	};
 
@@ -282,6 +314,11 @@ private:
 		UBO_vsScene vsScene;
 		UBO_fsLights fsLights;
 	} ubos;
+
+	// encapsulate uniform buffer objects
+	struct {
+		SBO_lights lights;
+	} sbos;
 
 	// Textures
 	struct Texture {
@@ -400,6 +437,10 @@ private:
 	void createLightInfos();
 
 	void createUniformBuffer();
+
+	void createStorageBuffer();
+
+	void initStorageBuffer();
 
 	void createDescriptorPool();
 

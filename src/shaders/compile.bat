@@ -3,5 +3,5 @@ glslangvalidator -V triangle.frag -o triangle.frag.spv
 glslangvalidator -V axis.vert -o axis.vert.spv
 glslangvalidator -V axis.frag -o axis.frag.spv
 glslangvalidator -V quad.frag -o quad.frag.spv
+glslangvalidator -V compute.comp -o compute.comp.spv
 pause
-

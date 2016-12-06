@@ -1,20 +1,17 @@
 #version 450
-
 #extension GL_ARB_separate_shader_objects : enable
 #extension GL_ARB_shading_language_420pack : enable
 
 #define NUM_LIGHTS 8
-#define TIME_STEP .0001f
+#define TIME_STEP .001f
 
 struct LightStruct {
 	vec4 beginPos; // beginPos.w is intensity
 	vec4 endPos; // endPos.w is radius
 	vec4 color; // color.w is time
-	vec4 pos;
 };
 
-layout(binding = 0) buffer ComputeBuffer1
-{
+layout(binding = 3) buffer Lights {
    LightStruct lights[];
 };
 
@@ -28,10 +25,5 @@ void main()
 		return;
 	}
 
-	float t = sin(lights[index].color.w);
-	vec3 beginPos = lights[index].beginPos.xyz;
-	vec3 endPos = lights[index].endPos.xyz;
-
-	lights[index].pos.xyz = (1 - t) * beginPos + t * endPos;
 	lights[index].color.w += TIME_STEP;
 }

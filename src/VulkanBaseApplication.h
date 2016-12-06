@@ -155,6 +155,7 @@ private:
 
 	// Pipeline layout
 	VDeleter<VkPipelineLayout> pipelineLayout{ device, vkDestroyPipelineLayout };
+	VDeleter<VkPipelineLayout> computePipelineLayout = {device, vkDestroyPipelineLayout};
 
 	// Descriptor pool
 	VDeleter<VkDescriptorPool> descriptorPool{ device, vkDestroyDescriptorPool };
@@ -171,22 +172,24 @@ private:
 
 	// Command buffers
 	std::vector<VkCommandBuffer> commandBuffers;
+	VkCommandBuffer computeCommandBuffer;
 
 	// Semaphores
 	VDeleter<VkSemaphore> imageAvailableSemaphore{ device, vkDestroySemaphore };
 	VDeleter<VkSemaphore> renderFinishedSemaphore{ device, vkDestroySemaphore };
-
 
 	// Pipeline(s)
 	struct Pipelines{
 		VkPipeline graphics; // base pipeline
 		VkPipeline axis; // axis pipeline
 		VkPipeline quad; // quad pipeline
+		VkPipeline compute; // compute pipeline
 
 		void cleanup(VkDevice device) {
 			vkDestroyPipeline(device, graphics, nullptr);
 			vkDestroyPipeline(device, axis, nullptr);
 			vkDestroyPipeline(device, quad, nullptr);
+			vkDestroyPipeline(device, compute, nullptr);
 		}
 
 	} pipelines;
@@ -247,16 +250,14 @@ private:
 
 	struct {
 		UniformData vsScene, vsSceneStaging;
-		UniformData fsLights, fsLightsStaging;
 
 		void cleanup(VkDevice device) {
 			vsScene.cleanup(device);
 			vsSceneStaging.cleanup(device);
-			fsLights.cleanup(device);
-			fsLightsStaging.cleanup(device);
 		}
 	} uniformData;
 
+	// storage buffers
 	struct StorageData {
 		VkBuffer buffer;
 		VkDeviceMemory memory;
@@ -285,37 +286,26 @@ private:
 		glm::vec4 cameraPos;
 	};
 
-	struct LightInfo {
-		glm::vec4 pos; // pos.w = intensity
-		glm::vec4 color; // color.w = radius
-	};
+	// uniform buffer host data
+	struct {
+		UBO_vsScene vsScene;
+	} ubos;
 
+	// light information
 	struct LightStruct {
 		glm::vec4 beginPos; // beginPos.w = intensity
 		glm::vec4 endPos; // endPos.w = radius
 		glm::vec4 color; // color.w = t
 	};
 
-	// uniform buffer object for fragment shader (lights)
-	#define MAX_NUM_LIGHT 100
-	struct UBO_fsLights {
-		LightInfo lights[MAX_NUM_LIGHT];
-		int numLights;
-	};
-
 	// storage buffer object to store lights
+	#define MAX_NUM_LIGHT 100
 	struct SBO_lights {
 		LightStruct lights[MAX_NUM_LIGHT];
 		int numLights;
 	};
 
-	// encapsulate uniform buffer objects
-	struct {
-		UBO_vsScene vsScene;
-		UBO_fsLights fsLights;
-	} ubos;
-
-	// encapsulate uniform buffer objects
+	// storage buffer host data
 	struct {
 		SBO_lights lights;
 	} sbos;
@@ -371,11 +361,15 @@ private:
 
 	void createGraphicsPipeline();
 
+	void createComputePipeline();
+
 	void createFramebuffers();
 
 	void createCommandPool();
 
 	void createCommandBuffers();
+
+	void createComputeCommandBuffer();
 
 	void createRenderPass();
 

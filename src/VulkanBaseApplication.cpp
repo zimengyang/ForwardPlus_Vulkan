@@ -155,32 +155,23 @@ void VulkanBaseApplication::updateUniformBuffer() {
 	vkUnmapMemory(device, uniformData.vsSceneStaging.memory);
 
 	copyBuffer(uniformData.vsSceneStaging.buffer, uniformData.vsScene.buffer, bufferSize);
-
-
-	//--------------------- update frag uniform buffer (lights)----------------------------------
-	UBO_fsLights & fsLights = ubos.fsLights;
-	for (int i = 0; i < fsLights.numLights; ++i) {
-		fsLights.lights[i].pos.y += 0.0015f * ((float)lightMoveDirs[i] * 2.0f - 1.0f);
-
-		if (fsLights.lights[i].pos.y > 1.0f || fsLights.lights[i].pos.y < -2.0f)
-		{
-			//fragLightInfos.lights[i].pos.y = 2.0f;
-			lightMoveDirs[i] = !lightMoveDirs[i];
-		}
-	}
-
-	bufferSize = uniformData.fsLightsStaging.allocSize;
-	vkMapMemory(device, uniformData.fsLightsStaging.memory, 0, bufferSize, 0, &data);
-		memcpy(data, &fsLights, bufferSize);
-	vkUnmapMemory(device, uniformData.fsLightsStaging.memory);
-
-	copyBuffer(uniformData.fsLightsStaging.buffer, uniformData.fsLights.buffer, bufferSize);
 }
 
 
 void VulkanBaseApplication::drawFrame() {
 	uint32_t imageIndex;
 	vkAcquireNextImageKHR(device, swapChain, std::numeric_limits<uint64_t>::max(), imageAvailableSemaphore, VK_NULL_HANDLE, &imageIndex);
+
+	VkSubmitInfo computeSubmitInfo = {};
+	computeSubmitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+	computeSubmitInfo.pNext = nullptr;
+	computeSubmitInfo.commandBufferCount = 1;
+	computeSubmitInfo.pCommandBuffers = &computeCommandBuffer;
+
+	if (vkQueueSubmit(graphicsQueue, 1, &computeSubmitInfo, VK_NULL_HANDLE)
+		!= VK_SUCCESS) {
+		throw std::runtime_error("failed to submit compute command buffer!");
+	}
 
 	VkSubmitInfo submitInfo = {};
 	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
@@ -190,7 +181,6 @@ void VulkanBaseApplication::drawFrame() {
 	submitInfo.waitSemaphoreCount = 1;
 	submitInfo.pWaitSemaphores = waitSemaphores;
 	submitInfo.pWaitDstStageMask = waitStages;
-
 	submitInfo.commandBufferCount = 1;
 	submitInfo.pCommandBuffers = &commandBuffers[imageIndex];
 
@@ -204,7 +194,6 @@ void VulkanBaseApplication::drawFrame() {
 
 	VkPresentInfoKHR presentInfo = {};
 	presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
-
 	presentInfo.waitSemaphoreCount = 1;
 	presentInfo.pWaitSemaphores = signalSemaphores;
 
@@ -230,6 +219,7 @@ void VulkanBaseApplication::initVulkan() {
 	createRenderPass();
 	createDescriptorSetLayout();
 	createGraphicsPipeline();
+	createComputePipeline();
 	createCommandPool();
 	createDepthResources();
 	createFramebuffers();
@@ -254,6 +244,7 @@ void VulkanBaseApplication::initVulkan() {
 	createDescriptorPool();
 	createDescriptorSet();
 	createCommandBuffers();
+	createComputeCommandBuffer();
 	createSemaphores();
 }
 
@@ -455,8 +446,10 @@ void VulkanBaseApplication::createGraphicsPipeline()
 {
 #pragma region Vertex and Fragment Shader Stages
 	// vertex and fragment shader stages
+	if (shaderModules.size() < 5) {
+		shaderModules.resize(5);
+	}
 
-	shaderModules.resize(5);
 	VkPipelineShaderStageCreateInfo vertShaderStageInfo = loadShader("../src/shaders/triangle.vert.spv", VK_SHADER_STAGE_VERTEX_BIT, 0);
 	VkPipelineShaderStageCreateInfo fragShaderStageInfo = loadShader("../src/shaders/triangle.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT, 1);
 	VkPipelineShaderStageCreateInfo vertShaderStageInfo_axis = loadShader("../src/shaders/axis.vert.spv", VK_SHADER_STAGE_VERTEX_BIT, 2);
@@ -663,6 +656,43 @@ void VulkanBaseApplication::createGraphicsPipeline()
 
 }
 
+void VulkanBaseApplication::createComputePipeline() {
+	if (shaderModules.size() < 6) {
+		shaderModules.resize(6);
+	}
+
+	// shader stage
+	VkPipelineShaderStageCreateInfo shaderStageInfo = loadShader("../src/shaders/compute.comp.spv", VK_SHADER_STAGE_COMPUTE_BIT, 5);
+
+	// pipeline layout
+	VkPipelineLayoutCreateInfo pipelineLayoutInfo = {};
+
+	pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+	pipelineLayoutInfo.pNext = nullptr;
+	pipelineLayoutInfo.flags = NULL;
+	pipelineLayoutInfo.setLayoutCount = 1;
+	pipelineLayoutInfo.pSetLayouts = &descriptorSetLayout;
+
+	if (vkCreatePipelineLayout(device, &pipelineLayoutInfo, nullptr,
+			computePipelineLayout.replace()) != VK_SUCCESS) {
+		throw std::runtime_error("failed to create compute pipeline layout!");
+	}
+
+	// compute pipeline
+	VkComputePipelineCreateInfo pipelineInfo = {};
+
+	pipelineInfo.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
+	pipelineInfo.pNext = nullptr;
+	pipelineInfo.flags = VK_PIPELINE_CREATE_DISABLE_OPTIMIZATION_BIT;
+	pipelineInfo.stage = shaderStageInfo;
+	pipelineInfo.layout = computePipelineLayout;
+
+	if (vkCreateComputePipelines(device, VK_NULL_HANDLE, 1, &pipelineInfo,
+			nullptr, &pipelines.compute) != VK_SUCCESS) {
+		throw std::runtime_error("failed to create compute pipeline!");
+	}
+}
+
 void VulkanBaseApplication::createFramebuffers() {
 	swapChainFramebuffers.resize(swapChainImageViews.size(), VDeleter<VkFramebuffer>{device, vkDestroyFramebuffer});
 
@@ -797,7 +827,75 @@ void VulkanBaseApplication::createCommandBuffers() {
 	}
 }
 
+void VulkanBaseApplication::createComputeCommandBuffer() {
+	VkCommandBufferAllocateInfo cmdBufInfo = {};
+	cmdBufInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+	cmdBufInfo.pNext = nullptr;
+	cmdBufInfo.commandPool = commandPool;
+	cmdBufInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+	cmdBufInfo.commandBufferCount = 1;
 
+	if (vkAllocateCommandBuffers(device, &cmdBufInfo,
+		&computeCommandBuffer) != VK_SUCCESS) {
+		throw std::runtime_error("failed to allocate compute command buffers!");
+	}
+
+	// record compute command buffer
+	VkCommandBufferBeginInfo cmdBufBeginInfo = {};
+	cmdBufBeginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+	cmdBufBeginInfo.pNext = nullptr;
+	cmdBufBeginInfo.flags = VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT;
+	cmdBufBeginInfo.pInheritanceInfo = nullptr;
+
+	vkBeginCommandBuffer(computeCommandBuffer, &cmdBufBeginInfo);
+
+	VkBufferMemoryBarrier bufferBarrier = {};
+	bufferBarrier.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
+	bufferBarrier.pNext = nullptr;
+	bufferBarrier.srcAccessMask = VK_ACCESS_SHADER_READ_BIT;
+	bufferBarrier.dstAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
+	bufferBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+	bufferBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+	bufferBarrier.buffer = storageData.lights.buffer;
+	bufferBarrier.offset = 0;
+	bufferBarrier.size = storageData.lights.allocSize;
+
+	vkCmdPipelineBarrier(
+		computeCommandBuffer,
+		VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+		VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+		VK_DEPENDENCY_BY_REGION_BIT,
+		0, nullptr, 1, &bufferBarrier, 0, nullptr
+	);
+
+	vkCmdBindPipeline(
+		computeCommandBuffer,
+		VK_PIPELINE_BIND_POINT_COMPUTE,
+		pipelines.compute
+	);
+
+	vkCmdBindDescriptorSets(
+		computeCommandBuffer,
+		VK_PIPELINE_BIND_POINT_COMPUTE,
+		computePipelineLayout,
+		0, 1, &descriptorSet, 0, nullptr
+	);
+
+	vkCmdDispatch(computeCommandBuffer, 1, 1, 1);
+
+	bufferBarrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
+	bufferBarrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+
+	vkCmdPipelineBarrier(
+		computeCommandBuffer,
+		VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+		VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+		VK_DEPENDENCY_BY_REGION_BIT,
+		0, nullptr, 1, &bufferBarrier, 0, nullptr
+	);
+
+	vkEndCommandBuffer(computeCommandBuffer);
+}
 
 void VulkanBaseApplication::createRenderPass() {
 
@@ -957,7 +1055,9 @@ QueueFamilyIndices VulkanBaseApplication::findQueueFamilies(VkPhysicalDevice dev
 
 	int i = 0;
 	for (const auto& queueFamily : queueFamilies) {
-		if (queueFamily.queueCount > 0 && queueFamily.queueFlags & VK_QUEUE_GRAPHICS_BIT) {
+		if (queueFamily.queueCount > 0
+			&& queueFamily.queueFlags & VK_QUEUE_GRAPHICS_BIT
+			&& queueFamily.queueFlags & VK_QUEUE_COMPUTE_BIT) {
 			indices.graphicsFamily = i;
 		}
 
@@ -1261,14 +1361,17 @@ void VulkanBaseApplication::createDescriptorSetLayout() {
 	samplerLayoutBinding2.pImmutableSamplers = nullptr;
 	samplerLayoutBinding2.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
 
-	VkDescriptorSetLayoutBinding fragLightsLayoutBinding = {};
-	fragLightsLayoutBinding.binding = 3;
-	fragLightsLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-	fragLightsLayoutBinding.descriptorCount = 1;
-	fragLightsLayoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
-	fragLightsLayoutBinding.pImmutableSamplers = nullptr; // Optional
+	VkDescriptorSetLayoutBinding lightsStorageLayoutBinding = {};
+	lightsStorageLayoutBinding.binding = 3;
+	lightsStorageLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+	lightsStorageLayoutBinding.descriptorCount = 1;
+	lightsStorageLayoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_COMPUTE_BIT;
+	lightsStorageLayoutBinding.pImmutableSamplers = nullptr;
 
-	std::array<VkDescriptorSetLayoutBinding, 4> bindings = { uboLayoutBinding, samplerLayoutBinding, samplerLayoutBinding2, fragLightsLayoutBinding };
+	std::array<VkDescriptorSetLayoutBinding, 4> bindings = {
+		uboLayoutBinding, samplerLayoutBinding, samplerLayoutBinding2,
+		lightsStorageLayoutBinding
+	};
 
 	VkDescriptorSetLayoutCreateInfo layoutInfo = {};
 	layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
@@ -1278,46 +1381,23 @@ void VulkanBaseApplication::createDescriptorSetLayout() {
 	if (vkCreateDescriptorSetLayout(device, &layoutInfo, nullptr, descriptorSetLayout.replace()) != VK_SUCCESS) {
 		throw std::runtime_error("failed to create descriptor set layout!");
 	}
-
 }
 
 void VulkanBaseApplication::createLightInfos() {
-
-	std::default_random_engine gen;
-	std::uniform_real_distribution<float> uniformDistribution(0.0f, 1.0f);
-
-	ubos.fsLights.numLights = 8;
-	float scale = 3.0f;
-	for (int i = 0; i < ubos.fsLights.numLights; ++i) {
-		float posX = uniformDistribution(gen) * 4.0f * scale - 2.0f * scale;
-		float posY = uniformDistribution(gen) * 2.0f - 1.0f;
-		float posZ = uniformDistribution(gen) * 2.0f * scale - scale;
-		float intensity = uniformDistribution(gen) * 0.8f;
-		ubos.fsLights.lights[i].pos = glm::vec4(posX, posY, posZ, intensity);
-
-		ubos.fsLights.lights[i].color = glm::vec4(
-			uniformDistribution(gen),
-			uniformDistribution(gen),
-			uniformDistribution(gen),
-			uniformDistribution(gen) * 2.0f * scale);
-
-		lightMoveDirs[i] = false;
-	}
-
-	std::default_random_engine g;
+	std::default_random_engine g((unsigned)time(0));
 	std::uniform_real_distribution<float> u(0.f, 1.f);
+	float scale = 3.0f;
 
 	sbos.lights.numLights = 8;
-	scale = 3.f;
 	for (int i = 0; i < sbos.lights.numLights; ++i) {
 		float posX = u(g) * 4.f * scale - 2.f * scale;
-		float posY = u(g) * 2.f - 1.f;
+		float posY = u(g) * 2.f + 2.f;
 		float posZ = u(g) * 2.f * scale - scale;
 		float intensity = u(g) * .8f;
 
 		sbos.lights.lights[i].beginPos = glm::vec4(posX, posY, posZ, intensity);
 		sbos.lights.lights[i].endPos = sbos.lights.lights[i].beginPos;
-		sbos.lights.lights[i].endPos.y = u(g) * 2.f - 1.f;
+		sbos.lights.lights[i].endPos.y = u(g) * 2.f - 2.f;
 		sbos.lights.lights[i].endPos.w = u(g) * 2.0f * scale;
 		sbos.lights.lights[i].color = glm::vec4(u(g), u(g), u(g), 0.f);
 	}
@@ -1325,18 +1405,9 @@ void VulkanBaseApplication::createLightInfos() {
 
 
 void VulkanBaseApplication::createUniformBuffer() {
-	//VkDeviceSize bufferSize = sizeof(UniformBufferObject);
-
-	//createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, uniformStagingBuffer.buffer, uniformStagingBuffer.memory);
-	//createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, uniformBuffer.buffer, uniformBuffer.memory);
-
-	//bufferSize = sizeof(FragLightInfos);
-
-	//createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, fragLightsStagingBuffer.buffer, fragLightsStagingBuffer.memory);
-	//createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, fragLightsBuffer.buffer, fragLightsBuffer.memory);
-
 	// vs scene
 	VkDeviceSize bufferSize = sizeof(UBO_vsScene);
+
 	uniformData.vsSceneStaging.allocSize = bufferSize;
 	createBuffer(bufferSize,
 		VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
@@ -1348,24 +1419,10 @@ void VulkanBaseApplication::createUniformBuffer() {
 		VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
 		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
 		uniformData.vsScene.buffer, uniformData.vsScene.memory);
-
-	// fs lights
-	bufferSize = sizeof(UBO_fsLights);
-	uniformData.fsLightsStaging.allocSize = bufferSize;
-	createBuffer(bufferSize,
-		VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-		uniformData.fsLightsStaging.buffer, uniformData.fsLightsStaging.memory);
-
-	uniformData.fsLights.allocSize = bufferSize;
-	createBuffer(bufferSize,
-		VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-		uniformData.fsLights.buffer, uniformData.fsLights.memory);
-
 }
 
 void VulkanBaseApplication::createStorageBuffer() {
+	// lights
 	VkDeviceSize bufferSize = sizeof(SBO_lights);
 
 	storageData.lightsStaging.allocSize = bufferSize;
@@ -1395,21 +1452,19 @@ void VulkanBaseApplication::initStorageBuffer() {
 
 void VulkanBaseApplication::createDescriptorPool() {
 
-	std::array<VkDescriptorPoolSize, 4> poolSizes = {};
+	std::array<VkDescriptorPoolSize, 3> poolSizes = {};
 	poolSizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-	poolSizes[0].descriptorCount = 1;
+	poolSizes[0].descriptorCount = 2;
 	poolSizes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-	poolSizes[1].descriptorCount = 1;
-	poolSizes[2].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+	poolSizes[1].descriptorCount = 2;
+	poolSizes[2].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
 	poolSizes[2].descriptorCount = 1;
-	poolSizes[3].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-	poolSizes[3].descriptorCount = 1;
 
 	VkDescriptorPoolCreateInfo poolInfo = {};
 	poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
 	poolInfo.poolSizeCount = (uint32_t)poolSizes.size();
 	poolInfo.pPoolSizes = poolSizes.data();
-	poolInfo.maxSets = 1;
+	poolInfo.maxSets = 5;
 
 	if (vkCreateDescriptorPool(device, &poolInfo, nullptr, descriptorPool.replace()) != VK_SUCCESS) {
 		throw std::runtime_error("failed to create descriptor pool!");
@@ -1435,10 +1490,10 @@ void VulkanBaseApplication::createDescriptorSet() {
 	vsSceneDescriptorInfo.offset = 0;
 	vsSceneDescriptorInfo.range = uniformData.vsScene.allocSize;
 
-	VkDescriptorBufferInfo fsLightsDescriptorInfo = {};
-	fsLightsDescriptorInfo.buffer = uniformData.fsLights.buffer;
-	fsLightsDescriptorInfo.offset = 0;
-	fsLightsDescriptorInfo.range = uniformData.fsLights.allocSize;
+	VkDescriptorBufferInfo lightsStorageDescriptorInfo = {};
+	lightsStorageDescriptorInfo.buffer = storageData.lights.buffer;
+	lightsStorageDescriptorInfo.offset = 0;
+	lightsStorageDescriptorInfo.range = storageData.lights.allocSize;
 
 	std::array<VkDescriptorImageInfo, 2> imageInfo = {};
 	imageInfo[0].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
@@ -1479,13 +1534,12 @@ void VulkanBaseApplication::createDescriptorSet() {
 	descriptorWrites[3].dstSet = descriptorSet;
 	descriptorWrites[3].dstBinding = 3;
 	descriptorWrites[3].dstArrayElement = 0;
-	descriptorWrites[3].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+	descriptorWrites[3].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
 	descriptorWrites[3].descriptorCount = 1;
-	descriptorWrites[3].pBufferInfo = &fsLightsDescriptorInfo;
+	descriptorWrites[3].pBufferInfo = &lightsStorageDescriptorInfo;
 
 	vkUpdateDescriptorSets(device, (uint32_t)descriptorWrites.size(), descriptorWrites.data(), 0, nullptr);
 }
-
 
 void VulkanBaseApplication::createTextureImage(const std::string& texFilename, VkImage & texImage, VkDeviceMemory & texImageMemory) {
 

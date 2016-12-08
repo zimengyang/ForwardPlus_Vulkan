@@ -13,8 +13,7 @@ VkResult CreateDebugReportCallbackEXT(VkInstance instance, const VkDebugReportCa
 	auto func = (PFN_vkCreateDebugReportCallbackEXT)vkGetInstanceProcAddr(instance, "vkCreateDebugReportCallbackEXT");
 	if (func != nullptr) {
 		return func(instance, pCreateInfo, pAllocator, pCallback);
-	}
-	else {
+	} else {
 		return VK_ERROR_EXTENSION_NOT_PRESENT;
 	}
 }
@@ -25,7 +24,6 @@ void DestroyDebugReportCallbackEXT(VkInstance instance, VkDebugReportCallbackEXT
 		func(instance, callback, pAllocator);
 	}
 }
-
 
 // mouse control related
 glm::vec2 cursorPos;
@@ -39,21 +37,18 @@ glm::vec2 cameraRotAngles; // for camera rotation
 // deubg mode int
 float debugMode;
 
-
 namespace std {
-
 	template<> struct hash<Vertex> {
 		size_t operator()(Vertex const& vertex) const {
 			return ((hash<glm::vec3>()(vertex.pos) ^
 				(hash<glm::vec3>()(vertex.color) << 1)) >> 1) ^
 				(hash<glm::vec2>()(vertex.texCoord) << 1 ^
-					(hash<glm::vec3>()(vertex.normal) << 1));
+				(hash<glm::vec3>()(vertex.normal) << 1));
 		}
 	};
 }
 
 bool lightMoveDirs[MAX_NUM_LIGHT];
-
 
 /************************************************************/
 //			Base Class for Vulkan Application
@@ -68,8 +63,6 @@ void VulkanBaseApplication::run() {
 
 // clean up resources
 VulkanBaseApplication::~VulkanBaseApplication() {
-
-
 	// swap chain image veiws
 	for (auto imageView : swapChainImageViews) {
 		vkDestroyImageView(device, imageView, nullptr);
@@ -88,6 +81,9 @@ VulkanBaseApplication::~VulkanBaseApplication() {
 
 	// cleanup uniform buffers
 	uniformData.cleanup(device);
+
+	// cleanup storage buffers
+	storageData.cleanup(device);
 }
 
 void VulkanBaseApplication::initWindow() {
@@ -111,7 +107,6 @@ void VulkanBaseApplication::initWindow() {
 void VulkanBaseApplication::mainLoop() {
 	while (!glfwWindowShouldClose(window)) {
 		glfwPollEvents();
-
 		updateUniformBuffer();
 		drawFrame();
 	}
@@ -120,7 +115,6 @@ void VulkanBaseApplication::mainLoop() {
 }
 
 void VulkanBaseApplication::updateUniformBuffer() {
-
 	//--------------------- update vertex uniform buffer----------------------------------
 	static auto startTime = std::chrono::high_resolution_clock::now();
 
@@ -162,29 +156,28 @@ void VulkanBaseApplication::drawFrame() {
 	uint32_t imageIndex;
 	vkAcquireNextImageKHR(device, swapChain, std::numeric_limits<uint64_t>::max(), imageAvailableSemaphore, VK_NULL_HANDLE, &imageIndex);
 
+	// submit compute command buffer
 	VkSubmitInfo computeSubmitInfo = {};
 	computeSubmitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 	computeSubmitInfo.pNext = nullptr;
 	computeSubmitInfo.commandBufferCount = 1;
 	computeSubmitInfo.pCommandBuffers = &computeCommandBuffer;
 
-	if (vkQueueSubmit(graphicsQueue, 1, &computeSubmitInfo, VK_NULL_HANDLE)
-		!= VK_SUCCESS) {
+	if (vkQueueSubmit(graphicsQueue, 1, &computeSubmitInfo, VK_NULL_HANDLE) != VK_SUCCESS) {
 		throw std::runtime_error("failed to submit compute command buffer!");
 	}
 
+	// submit graphics command buffer
 	VkSubmitInfo submitInfo = {};
-	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-
 	VkSemaphore waitSemaphores[] = { imageAvailableSemaphore };
+	VkSemaphore signalSemaphores[] = { renderFinishedSemaphore };
 	VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
+	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 	submitInfo.waitSemaphoreCount = 1;
 	submitInfo.pWaitSemaphores = waitSemaphores;
 	submitInfo.pWaitDstStageMask = waitStages;
 	submitInfo.commandBufferCount = 1;
 	submitInfo.pCommandBuffers = &commandBuffers[imageIndex];
-
-	VkSemaphore signalSemaphores[] = { renderFinishedSemaphore };
 	submitInfo.signalSemaphoreCount = 1;
 	submitInfo.pSignalSemaphores = signalSemaphores;
 
@@ -192,15 +185,14 @@ void VulkanBaseApplication::drawFrame() {
 		throw std::runtime_error("failed to submit draw command buffer!");
 	}
 
+	// submit present command
 	VkPresentInfoKHR presentInfo = {};
+	VkSwapchainKHR swapChains[] = { swapChain };
 	presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
 	presentInfo.waitSemaphoreCount = 1;
 	presentInfo.pWaitSemaphores = signalSemaphores;
-
-	VkSwapchainKHR swapChains[] = { swapChain };
 	presentInfo.swapchainCount = 1;
 	presentInfo.pSwapchains = swapChains;
-
 	presentInfo.pImageIndices = &imageIndex;
 
 	vkQueuePresentKHR(presentQueue, &presentInfo);
@@ -208,7 +200,6 @@ void VulkanBaseApplication::drawFrame() {
 
 
 void VulkanBaseApplication::initVulkan() {
-
 	createInstance();
 	setupDebugCallback();
 	createSurface();
@@ -235,9 +226,7 @@ void VulkanBaseApplication::initVulkan() {
 	loadTextureQuad();
 	createMeshBuffer(meshs.quad);
 
-	// light information
 	createLightInfos();
-
 	createUniformBuffer();
 	createStorageBuffer();
 	initStorageBuffer();
@@ -260,18 +249,16 @@ void VulkanBaseApplication::createInstance() {
 	appInfo.apiVersion = VK_API_VERSION_1_0;
 
 	VkInstanceCreateInfo createInfo = {};
+	auto extensions = getRequiredExtensions();
 	createInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
 	createInfo.pApplicationInfo = &appInfo;
-
-	auto extensions = getRequiredExtensions();
 	createInfo.enabledExtensionCount = uint32_t(extensions.size());
 	createInfo.ppEnabledExtensionNames = extensions.data();
 
 	if (enableValidationLayers) {
 		createInfo.enabledLayerCount = uint32_t(validationLayers.size());
 		createInfo.ppEnabledLayerNames = validationLayers.data();
-	}
-	else {
+	} else {
 		createInfo.enabledLayerCount = 0;
 	}
 
@@ -305,7 +292,6 @@ void VulkanBaseApplication::createSurface() {
 
 
 void VulkanBaseApplication::pickPhysicalDevice() {
-
 	uint32_t deviceCount = 0;
 	vkEnumeratePhysicalDevices(instance, &deviceCount, nullptr);
 
@@ -331,11 +317,10 @@ void VulkanBaseApplication::pickPhysicalDevice() {
 
 void VulkanBaseApplication::createLogicalDevice() {
 	QueueFamilyIndices indices = findQueueFamilies(physicalDevice);
-
 	std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
 	std::set<int> uniqueQueueFamilies = { indices.graphicsFamily, indices.presentFamily };
-
 	float queuePriority = 1.0f;
+
 	for (int queueFamily : uniqueQueueFamilies) {
 		VkDeviceQueueCreateInfo queueCreateInfo = {};
 		queueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
@@ -352,7 +337,6 @@ void VulkanBaseApplication::createLogicalDevice() {
 	createInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
 	createInfo.pQueueCreateInfos = queueCreateInfos.data();
 	createInfo.queueCreateInfoCount = uint32_t(queueCreateInfos.size());
-
 	createInfo.pEnabledFeatures = &deviceFeatures;
 	createInfo.enabledExtensionCount = uint32_t(deviceExtensions.size());
 	createInfo.ppEnabledExtensionNames = deviceExtensions.data();
@@ -360,8 +344,7 @@ void VulkanBaseApplication::createLogicalDevice() {
 	if (enableValidationLayers) {
 		createInfo.enabledLayerCount = uint32_t(validationLayers.size());
 		createInfo.ppEnabledLayerNames = validationLayers.data();
-	}
-	else {
+	} else {
 		createInfo.enabledLayerCount = 0;
 	}
 
@@ -372,18 +355,16 @@ void VulkanBaseApplication::createLogicalDevice() {
 	// retrieving queue handles
 	vkGetDeviceQueue(device, indices.graphicsFamily, 0, &graphicsQueue);
 	vkGetDeviceQueue(device, indices.presentFamily, 0, &presentQueue);
-
 }
 
 
 void VulkanBaseApplication::createSwapChain() {
 	SwapChainSupportDetails swapChainSupport = querySwapChainSupport(physicalDevice);
-
 	VkSurfaceFormatKHR surfaceFormat = chooseSwapSurfaceFormat(swapChainSupport.formats);
 	VkPresentModeKHR presentMode = chooseSwapPresentMode(swapChainSupport.presentModes);
 	VkExtent2D extent = chooseSwapExtent(swapChainSupport.capabilities);
-
 	uint32_t imageCount = swapChainSupport.capabilities.minImageCount + 1;
+
 	if (swapChainSupport.capabilities.maxImageCount > 0 && imageCount > swapChainSupport.capabilities.maxImageCount) {
 		imageCount = swapChainSupport.capabilities.maxImageCount;
 	}
@@ -391,7 +372,6 @@ void VulkanBaseApplication::createSwapChain() {
 	VkSwapchainCreateInfoKHR createInfo = {};
 	createInfo.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
 	createInfo.surface = surface;
-
 	createInfo.minImageCount = imageCount;
 	createInfo.imageFormat = surfaceFormat.format;
 	createInfo.imageColorSpace = surfaceFormat.colorSpace;
@@ -406,8 +386,7 @@ void VulkanBaseApplication::createSwapChain() {
 		createInfo.imageSharingMode = VK_SHARING_MODE_CONCURRENT;
 		createInfo.queueFamilyIndexCount = 2;
 		createInfo.pQueueFamilyIndices = queueFamilyIndices;
-	}
-	else {
+	} else {
 		createInfo.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
 		//createInfo.queueFamilyIndexCount = 0; // Optional
 		//createInfo.pQueueFamilyIndices = nullptr; // Optional
@@ -417,7 +396,6 @@ void VulkanBaseApplication::createSwapChain() {
 	createInfo.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
 	createInfo.presentMode = presentMode;
 	createInfo.clipped = VK_TRUE;
-
 	createInfo.oldSwapchain = VK_NULL_HANDLE;
 
 	if (vkCreateSwapchainKHR(device, &createInfo, nullptr, swapChain.replace()) != VK_SUCCESS) {
@@ -455,7 +433,6 @@ void VulkanBaseApplication::createGraphicsPipeline()
 	VkPipelineShaderStageCreateInfo vertShaderStageInfo_axis = loadShader("../src/shaders/axis.vert.spv", VK_SHADER_STAGE_VERTEX_BIT, 2);
 	VkPipelineShaderStageCreateInfo fragShaderStageInfo_axis = loadShader("../src/shaders/axis.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT, 3);
 	VkPipelineShaderStageCreateInfo fragShaderStageInfo_quad = loadShader("../src/shaders/quad.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT, 4);
-
 
 	VkPipelineShaderStageCreateInfo shaderStages[] = { vertShaderStageInfo, fragShaderStageInfo };
 #pragma endregion
@@ -652,8 +629,6 @@ void VulkanBaseApplication::createGraphicsPipeline()
 	if (vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &pipelines.axis) != VK_SUCCESS) {
 		throw std::runtime_error("failed to create graphics pipeline!");
 	}
-
-
 }
 
 void VulkanBaseApplication::createComputePipeline() {
@@ -701,7 +676,6 @@ void VulkanBaseApplication::createFramebuffers() {
 			swapChainImageViews[i],
 			depth.view
 		};
-
 
 		VkFramebufferCreateInfo framebufferInfo = {};
 		framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
@@ -1402,7 +1376,6 @@ void VulkanBaseApplication::createLightInfos() {
 		sbos.lights.lights[i].color = glm::vec4(u(g), u(g), u(g), 0.f);
 	}
 }
-
 
 void VulkanBaseApplication::createUniformBuffer() {
 	// vs scene

@@ -84,6 +84,7 @@ VulkanBaseApplication::~VulkanBaseApplication() {
 
 	// cleanup storage buffers
 	storageData.cleanup(device);
+
 }
 
 void VulkanBaseApplication::initWindow() {
@@ -149,6 +150,22 @@ void VulkanBaseApplication::updateUniformBuffer() {
 	vkUnmapMemory(device, uniformData.vsSceneStaging.memory);
 
 	copyBuffer(uniformData.vsSceneStaging.buffer, uniformData.vsScene.buffer, bufferSize);
+
+
+	//--------------------- update compute shader uniform buffer----------------------------------
+	UBO_csParams & csParams = ubos.csParams;
+
+	csParams.inverseProj = glm::inverse(vsScene.proj);
+	csParams.screenDimensions = glm::vec2(swapChainExtent.width, swapChainExtent.height);
+
+	bufferSize = uniformData.csParamsStaging.allocSize;
+	vkMapMemory(device, uniformData.csParamsStaging.memory, 0, bufferSize, 0, &data);
+		memcpy(data, &csParams, bufferSize);
+	vkUnmapMemory(device, uniformData.csParamsStaging.memory);
+
+	copyBuffer(uniformData.csParamsStaging.buffer, uniformData.csParams.buffer, bufferSize);
+
+
 }
 
 
@@ -632,12 +649,13 @@ void VulkanBaseApplication::createGraphicsPipeline()
 }
 
 void VulkanBaseApplication::createComputePipeline() {
-	if (shaderModules.size() < 6) {
-		shaderModules.resize(6);
+	if (shaderModules.size() < 7) {
+		shaderModules.resize(7);
 	}
 
 	// shader stage
 	VkPipelineShaderStageCreateInfo shaderStageInfo = loadShader("../src/shaders/compute.comp.spv", VK_SHADER_STAGE_COMPUTE_BIT, 5);
+	VkPipelineShaderStageCreateInfo shaderStageInfoFrustumGrid = loadShader("../src/shaders/computeFrustumGrid.comp.spv", VK_SHADER_STAGE_COMPUTE_BIT, 6);
 
 	// pipeline layout
 	VkPipelineLayoutCreateInfo pipelineLayoutInfo = {};
@@ -666,6 +684,14 @@ void VulkanBaseApplication::createComputePipeline() {
 			nullptr, &pipelines.compute) != VK_SUCCESS) {
 		throw std::runtime_error("failed to create compute pipeline!");
 	}
+
+
+	pipelineInfo.stage = shaderStageInfoFrustumGrid;
+	if (vkCreateComputePipelines(device, VK_NULL_HANDLE, 1, &pipelineInfo,
+		nullptr, &pipelines.computeFrustumGrid) != VK_SUCCESS) {
+		throw std::runtime_error("failed to create compute Frustum Grid pipeline!");
+	}
+
 }
 
 void VulkanBaseApplication::createFramebuffers() {
@@ -845,7 +871,7 @@ void VulkanBaseApplication::createComputeCommandBuffer() {
 	vkCmdBindPipeline(
 		computeCommandBuffer,
 		VK_PIPELINE_BIND_POINT_COMPUTE,
-		pipelines.compute
+		pipelines.computeFrustumGrid
 	);
 
 	vkCmdBindDescriptorSets(
@@ -1318,7 +1344,7 @@ void VulkanBaseApplication::createDescriptorSetLayout() {
 	uboLayoutBinding.binding = 0;
 	uboLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
 	uboLayoutBinding.descriptorCount = 1;
-	uboLayoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+	uboLayoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_COMPUTE_BIT;
 	uboLayoutBinding.pImmutableSamplers = nullptr; // Optional
 
 	VkDescriptorSetLayoutBinding samplerLayoutBinding = {};
@@ -1342,9 +1368,17 @@ void VulkanBaseApplication::createDescriptorSetLayout() {
 	lightsStorageLayoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_COMPUTE_BIT;
 	lightsStorageLayoutBinding.pImmutableSamplers = nullptr;
 
-	std::array<VkDescriptorSetLayoutBinding, 4> bindings = {
+	VkDescriptorSetLayoutBinding csParamsLayoutBinding = {};
+	csParamsLayoutBinding.binding = 4;
+	csParamsLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;;
+	csParamsLayoutBinding.descriptorCount = 1;
+	csParamsLayoutBinding.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+	csParamsLayoutBinding.pImmutableSamplers = nullptr;
+
+
+	std::array<VkDescriptorSetLayoutBinding, 5> bindings = {
 		uboLayoutBinding, samplerLayoutBinding, samplerLayoutBinding2,
-		lightsStorageLayoutBinding
+		lightsStorageLayoutBinding, csParamsLayoutBinding
 	};
 
 	VkDescriptorSetLayoutCreateInfo layoutInfo = {};
@@ -1392,6 +1426,21 @@ void VulkanBaseApplication::createUniformBuffer() {
 		VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
 		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
 		uniformData.vsScene.buffer, uniformData.vsScene.memory);
+
+	// cs params
+	bufferSize = sizeof(UBO_csParams);
+
+	uniformData.csParamsStaging.allocSize = bufferSize;
+	createBuffer(bufferSize,
+		VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+		uniformData.csParamsStaging.buffer, uniformData.csParamsStaging.memory);
+
+	uniformData.csParams.allocSize = bufferSize;
+	createBuffer(bufferSize,
+		VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+		uniformData.csParams.buffer, uniformData.csParams.memory);
 }
 
 void VulkanBaseApplication::createStorageBuffer() {
@@ -1456,12 +1505,17 @@ void VulkanBaseApplication::createDescriptorSet() {
 	if (vkAllocateDescriptorSets(device, &allocInfo, &descriptorSet) != VK_SUCCESS) {
 		throw std::runtime_error("failed to allocate descriptor set!");
 	}
-
+	
 
 	VkDescriptorBufferInfo vsSceneDescriptorInfo = {};
 	vsSceneDescriptorInfo.buffer = uniformData.vsScene.buffer;
 	vsSceneDescriptorInfo.offset = 0;
 	vsSceneDescriptorInfo.range = uniformData.vsScene.allocSize;
+
+	VkDescriptorBufferInfo csParamsDescriptorInfo = {};
+	csParamsDescriptorInfo.buffer = uniformData.csParams.buffer;
+	csParamsDescriptorInfo.offset = 0;
+	csParamsDescriptorInfo.range = uniformData.csParams.allocSize;
 
 	VkDescriptorBufferInfo lightsStorageDescriptorInfo = {};
 	lightsStorageDescriptorInfo.buffer = storageData.lights.buffer;
@@ -1477,7 +1531,7 @@ void VulkanBaseApplication::createDescriptorSet() {
 	imageInfo[1].imageView = textures[1].imageView; // textureImageViews[1];
 	imageInfo[1].sampler = textures[1].sampler; // textureSamplers[1];
 
-	std::array<VkWriteDescriptorSet, 4> descriptorWrites = {};
+	std::array<VkWriteDescriptorSet, 5> descriptorWrites = {};
 
 	descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
 	descriptorWrites[0].dstSet = descriptorSet;
@@ -1510,6 +1564,14 @@ void VulkanBaseApplication::createDescriptorSet() {
 	descriptorWrites[3].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
 	descriptorWrites[3].descriptorCount = 1;
 	descriptorWrites[3].pBufferInfo = &lightsStorageDescriptorInfo;
+
+	descriptorWrites[4].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+	descriptorWrites[4].dstSet = descriptorSet;
+	descriptorWrites[4].dstBinding = 4;
+	descriptorWrites[4].dstArrayElement = 0;
+	descriptorWrites[4].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+	descriptorWrites[4].descriptorCount = 1;
+	descriptorWrites[4].pBufferInfo = &csParamsDescriptorInfo;
 
 	vkUpdateDescriptorSets(device, (uint32_t)descriptorWrites.size(), descriptorWrites.data(), 0, nullptr);
 }

@@ -184,12 +184,14 @@ private:
 		VkPipeline axis; // axis pipeline
 		VkPipeline quad; // quad pipeline
 		VkPipeline compute; // compute pipeline
+		VkPipeline computeFrustumGrid; // compute Frustum Grid pipeline
 
 		void cleanup(VkDevice device) {
 			vkDestroyPipeline(device, graphics, nullptr);
 			vkDestroyPipeline(device, axis, nullptr);
 			vkDestroyPipeline(device, quad, nullptr);
 			vkDestroyPipeline(device, compute, nullptr);
+			vkDestroyPipeline(device, computeFrustumGrid, nullptr);
 		}
 
 	} pipelines;
@@ -250,10 +252,13 @@ private:
 
 	struct {
 		UniformData vsScene, vsSceneStaging;
+		UniformData csParams, csParamsStaging;
 
 		void cleanup(VkDevice device) {
 			vsScene.cleanup(device);
 			vsSceneStaging.cleanup(device);
+			csParams.cleanup(device);
+			csParamsStaging.cleanup(device);
 		}
 	} uniformData;
 
@@ -286,9 +291,15 @@ private:
 		glm::vec4 cameraPos;
 	};
 
+	struct UBO_csParams {
+		glm::mat4 inverseProj;
+		glm::vec2 screenDimensions;
+	};
+
 	// uniform buffer host data
 	struct {
 		UBO_vsScene vsScene;
+		UBO_csParams csParams;
 	} ubos;
 
 	// light information

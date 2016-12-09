@@ -276,10 +276,13 @@ private:
 
 	struct {
 		StorageData lights, lightsStaging;
+		StorageData frustumGrid, frustumGridStaging;
 
 		void cleanup(VkDevice device) {
 			lights.cleanup(device);
 			lightsStaging.cleanup(device);
+			frustumGrid.cleanup(device);
+			frustumGridStaging.cleanup(device);
 		}
 	} storageData;
 
@@ -316,9 +319,23 @@ private:
 		int numLights;
 	};
 
+	// frustum definition
+	struct Frustum {
+		// for each plane, use a vec4 to represent
+		// xyz is normal, w is distance
+		glm::vec4 planes[4];
+	};
+
+	#define NUM_FRUSTRUMS 2000
+	struct SBO_frustums {
+		Frustum frustums[NUM_FRUSTRUMS]; // 800*600 -> 50*40 
+		int numFrustums;
+	};
+	
 	// storage buffer host data
 	struct {
-		SBO_lights lights;
+		SBO_lights lights; 
+		SBO_frustums frustums;
 	} sbos;
 
 	// Textures

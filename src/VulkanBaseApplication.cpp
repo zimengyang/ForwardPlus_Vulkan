@@ -1375,10 +1375,17 @@ void VulkanBaseApplication::createDescriptorSetLayout() {
 	csParamsLayoutBinding.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
 	csParamsLayoutBinding.pImmutableSamplers = nullptr;
 
+	VkDescriptorSetLayoutBinding frustumStorageLayoutBinding = {};
+	frustumStorageLayoutBinding.binding = 5;
+	frustumStorageLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+	frustumStorageLayoutBinding.descriptorCount = 1;
+	frustumStorageLayoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_COMPUTE_BIT;
+	frustumStorageLayoutBinding.pImmutableSamplers = nullptr;
 
-	std::array<VkDescriptorSetLayoutBinding, 5> bindings = {
+	std::array<VkDescriptorSetLayoutBinding, 6> bindings = {
 		uboLayoutBinding, samplerLayoutBinding, samplerLayoutBinding2,
-		lightsStorageLayoutBinding, csParamsLayoutBinding
+		lightsStorageLayoutBinding, 
+		csParamsLayoutBinding, frustumStorageLayoutBinding
 	};
 
 	VkDescriptorSetLayoutCreateInfo layoutInfo = {};
@@ -1458,9 +1465,25 @@ void VulkanBaseApplication::createStorageBuffer() {
 		VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
 		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
 		storageData.lights.buffer, storageData.lights.memory);
+
+	// frustums 
+	bufferSize = sizeof(SBO_frustums);
+
+	storageData.frustumGridStaging.allocSize = bufferSize;
+	createBuffer(bufferSize,
+		VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+		storageData.frustumGridStaging.buffer, storageData.frustumGridStaging.memory);
+
+	storageData.frustumGrid.allocSize = bufferSize;
+	createBuffer(bufferSize,
+		VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+		storageData.frustumGrid.buffer, storageData.frustumGrid.memory);
 }
 
 void VulkanBaseApplication::initStorageBuffer() {
+	// lights
 	SBO_lights &lights = sbos.lights;
 	VkDeviceSize bufferSize = storageData.lightsStaging.allocSize;
 	void* data;
@@ -1470,6 +1493,18 @@ void VulkanBaseApplication::initStorageBuffer() {
 	vkUnmapMemory(device, storageData.lightsStaging.memory);
 
 	copyBuffer(storageData.lightsStaging.buffer, storageData.lights.buffer, bufferSize);
+
+	// frustums
+	SBO_frustums & frustums = sbos.frustums;
+	frustums.numFrustums = NUM_FRUSTRUMS;
+
+	bufferSize = storageData.frustumGridStaging.allocSize;
+
+	vkMapMemory(device, storageData.frustumGridStaging.memory, 0, bufferSize, 0, &data);
+		memcpy(data, &frustums, bufferSize);
+	vkUnmapMemory(device, storageData.frustumGridStaging.memory);
+
+	copyBuffer(storageData.frustumGridStaging.buffer, storageData.frustumGrid.buffer, bufferSize);
 }
 
 void VulkanBaseApplication::createDescriptorPool() {
@@ -1480,13 +1515,13 @@ void VulkanBaseApplication::createDescriptorPool() {
 	poolSizes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
 	poolSizes[1].descriptorCount = 2;
 	poolSizes[2].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-	poolSizes[2].descriptorCount = 1;
+	poolSizes[2].descriptorCount = 2;
 
 	VkDescriptorPoolCreateInfo poolInfo = {};
 	poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
 	poolInfo.poolSizeCount = (uint32_t)poolSizes.size();
 	poolInfo.pPoolSizes = poolSizes.data();
-	poolInfo.maxSets = 5;
+	poolInfo.maxSets = 6;
 
 	if (vkCreateDescriptorPool(device, &poolInfo, nullptr, descriptorPool.replace()) != VK_SUCCESS) {
 		throw std::runtime_error("failed to create descriptor pool!");
@@ -1522,6 +1557,11 @@ void VulkanBaseApplication::createDescriptorSet() {
 	lightsStorageDescriptorInfo.offset = 0;
 	lightsStorageDescriptorInfo.range = storageData.lights.allocSize;
 
+	VkDescriptorBufferInfo frustumStorageDescriptorInfo = {};
+	frustumStorageDescriptorInfo.buffer = storageData.frustumGrid.buffer;
+	frustumStorageDescriptorInfo.offset = 0;
+	frustumStorageDescriptorInfo.range = storageData.frustumGrid.allocSize;
+
 	std::array<VkDescriptorImageInfo, 2> imageInfo = {};
 	imageInfo[0].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 	imageInfo[0].imageView = textures[0].imageView; //textureImageViews[0];
@@ -1531,7 +1571,7 @@ void VulkanBaseApplication::createDescriptorSet() {
 	imageInfo[1].imageView = textures[1].imageView; // textureImageViews[1];
 	imageInfo[1].sampler = textures[1].sampler; // textureSamplers[1];
 
-	std::array<VkWriteDescriptorSet, 5> descriptorWrites = {};
+	std::array<VkWriteDescriptorSet, 6> descriptorWrites = {};
 
 	descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
 	descriptorWrites[0].dstSet = descriptorSet;
@@ -1572,6 +1612,14 @@ void VulkanBaseApplication::createDescriptorSet() {
 	descriptorWrites[4].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
 	descriptorWrites[4].descriptorCount = 1;
 	descriptorWrites[4].pBufferInfo = &csParamsDescriptorInfo;
+
+	descriptorWrites[5].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+	descriptorWrites[5].dstSet = descriptorSet;
+	descriptorWrites[5].dstBinding = 5;
+	descriptorWrites[5].dstArrayElement = 0;
+	descriptorWrites[5].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+	descriptorWrites[5].descriptorCount = 1;
+	descriptorWrites[5].pBufferInfo = &frustumStorageDescriptorInfo;
 
 	vkUpdateDescriptorSets(device, (uint32_t)descriptorWrites.size(), descriptorWrites.data(), 0, nullptr);
 }

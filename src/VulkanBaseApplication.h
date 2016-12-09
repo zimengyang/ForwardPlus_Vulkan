@@ -297,6 +297,8 @@ private:
 	struct UBO_csParams {
 		glm::mat4 inverseProj;
 		glm::vec2 screenDimensions;
+		glm::vec2 numThreadGroups;
+		glm::vec2 numThreads;
 	};
 
 	// uniform buffer host data

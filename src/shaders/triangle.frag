@@ -53,7 +53,7 @@ void main() {
 		float t = sin(lights[i].color.w);
 
         lightPos = (1 - t) * beginPos + t * endPos;
-        lightColor = frustums[0].planes[0].xyz + frustums[0].planes[1].xyz; //lights[i].color.xyz;
+        lightColor = lights[i].color.xyz;
         lightDir = lightPos - fragPosWorldSpace;
         lightIntensity = lights[i].beginPos.w;
         lightRadius = lights[i].endPos.w;

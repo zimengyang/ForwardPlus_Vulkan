@@ -157,6 +157,9 @@ void VulkanBaseApplication::updateUniformBuffer() {
 
 	csParams.inverseProj = glm::inverse(vsScene.proj);
 	csParams.screenDimensions = glm::vec2(swapChainExtent.width, swapChainExtent.height);
+	csParams.numThreadGroups = glm::vec2(ceil(swapChainExtent.width / 256.0), ceil(swapChainExtent.height / 256.0));
+	csParams.numThreads = glm::vec2(ceil(swapChainExtent.width / 16.0), ceil(swapChainExtent.height / 16.0));
+
 
 	bufferSize = uniformData.csParamsStaging.allocSize;
 	vkMapMemory(device, uniformData.csParamsStaging.memory, 0, bufferSize, 0, &data);
@@ -1497,7 +1500,6 @@ void VulkanBaseApplication::initStorageBuffer() {
 	// frustums
 	SBO_frustums & frustums = sbos.frustums;
 	frustums.numFrustums = NUM_FRUSTRUMS;
-
 	bufferSize = storageData.frustumGridStaging.allocSize;
 
 	vkMapMemory(device, storageData.frustumGridStaging.memory, 0, bufferSize, 0, &data);

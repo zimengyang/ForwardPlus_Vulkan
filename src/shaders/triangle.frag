@@ -22,8 +22,8 @@ layout(binding = 3) buffer Lights {
 };
 
 layout(binding = 5) buffer FrustumGrid {
-   Frustum frustums[];
-   int numFrustums;
+    int numFrustums;
+    Frustum frustums[];
 };
 
 layout(location = 0) in vec3 fragColor;
@@ -53,7 +53,7 @@ void main() {
 		float t = sin(lights[i].color.w);
 
         lightPos = (1 - t) * beginPos + t * endPos;
-        lightColor = frustums[0].planes[0].xyz; //lights[i].color.xyz;
+        lightColor = frustums[0].planes[0].xyz + frustums[0].planes[1].xyz; //lights[i].color.xyz;
         lightDir = lightPos - fragPosWorldSpace;
         lightIntensity = lights[i].beginPos.w;
         lightRadius = lights[i].endPos.w;

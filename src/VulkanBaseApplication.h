@@ -328,8 +328,8 @@ private:
 
 	#define NUM_FRUSTRUMS 2000
 	struct SBO_frustums {
-		Frustum frustums[NUM_FRUSTRUMS]; // 800*600 -> 50*40 
 		int numFrustums;
+		Frustum frustums[NUM_FRUSTRUMS]; // 800*600 -> 50*40 
 	};
 	
 	// storage buffer host data

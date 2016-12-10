@@ -12,7 +12,8 @@ struct Frustum {
     vec4 planes[4];
 };
 
-layout(binding = 1) uniform sampler2D texSampler;
+layout(binding = 1) uniform sampler2D texColorSampler;
+layout(binding = 2) uniform sampler2D texNormalSampler;
 
 layout(binding = 3) buffer Lights {
 	Light lights[];
@@ -30,25 +31,40 @@ layout(binding = 6) uniform Params {
 
 layout(location = 0) in vec3 fragColor;
 layout(location = 1) in vec2 fragTexCoord;
-layout(location = 2) in vec3 normal;
+layout(location = 2) in vec3 fragNormal;
 layout(location = 3) in vec3 fragPosWorldSpace;
 layout(location = 4) in vec3 fragPosViewSpace;
-layout(location = 5) in vec3 cameraPosViewSpace;
+layout(location = 5) in vec3 cameraPosWorldSpace;
 
 layout(location = 0) out vec4 outColor;
+
+// apply normal map
+vec3 applyNormalMap(vec3 geomnor, vec3 normap) {
+    normap = normap * 2.0 - 1.0;
+    vec3 up = normalize(vec3(0.001, 1, 0.001));
+    vec3 surftan = normalize(cross(geomnor, up));
+    vec3 surfbinor = cross(geomnor, surftan);
+    return normap.y * surftan + normap.x * surfbinor + normap.z * geomnor;
+}
 
 void main() {
 
     vec3 finalColor = vec3(0,0,0);
     // lighting for each light
     vec3 lightPos, lightDir, lightColor;
-    vec3 viewDir = normalize(cameraPosViewSpace.xyz - fragPosWorldSpace);
+    vec3 viewDir = normalize(cameraPosWorldSpace.xyz - fragPosWorldSpace);
     float dist, lightIntensity, NdotL, lightRadius;
+
+    vec3 textureColor = texture(texColorSampler, fragTexCoord).xyz;
+    vec3 normalMap = texture(texNormalSampler, fragTexCoord).xyz ;
+    //vec3 normal = applyNormalMap(fragNormal, normalMap);
+    vec3 normal = fragNormal;
+    //vec3 normal = normalMap;
 
     for(int i = 0; i < params.numLights; ++i) {
 		vec3 beginPos = lights[i].beginPos.xyz;
 		vec3 endPos = lights[i].endPos.xyz;
-		float t = sin(params.time * .1f);
+		float t = sin(params.time * 0.2);
 
         lightPos = (1 - t) * beginPos + t * endPos;
         lightColor = lights[i].color.xyz;
@@ -62,7 +78,7 @@ void main() {
         // attenuation
         //float att = max(0, lightRadius - dist);
 
-        NdotL = dot(normal,lightDir);
+        NdotL = dot(normal, lightDir);
 
         //finalColor += max(0, NdotL) * lightColor * att * lightIntensity;
         vec3 halfDir = normalize(lightDir + viewDir);
@@ -76,7 +92,7 @@ void main() {
 
     }
 
-    finalColor = finalColor * texture(texSampler, fragTexCoord).xyz;
+    finalColor = finalColor * textureColor;
     outColor = vec4(finalColor, 1.0);
 
     switch(params.debugMode){
@@ -84,24 +100,12 @@ void main() {
         outColor = vec4(finalColor, 1.0);
             break;
 
-        case 1: // texture coordinates
-        outColor = vec4(fragTexCoord, 0.0, 1.0);
+        case 1: // texture map
+        outColor = vec4(textureColor, 1.0);
             break;
 
-        case 2: // normal in world space
-        outColor = vec4(abs(normal), 1.0);
-            break;
-
-        case 3: // position in world space
-        outColor = vec4(fragPosWorldSpace, 1.0);
-            break;
-
-        case 4: // position in view space
-        outColor = vec4(fragPosViewSpace, 1.0);
-            break;
-
-        case 5: // distance to camera in view space
-        float dist = 1.0 / distance(fragPosViewSpace, cameraPosViewSpace);
+        case 2: // distance to camera in view space
+        float dist = 1.0 / distance(fragPosWorldSpace, cameraPosWorldSpace);
         outColor = vec4(dist * vec3(1,1,1), 1.0);
             break;
 

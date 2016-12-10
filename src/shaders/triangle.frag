@@ -2,16 +2,13 @@
 #extension GL_ARB_separate_shader_objects : enable
 #extension GL_ARB_shading_language_420pack : enable
 
-#define NUM_LIGHTS 8
-
-struct LightStruct {
+struct Light {
 	vec4 beginPos; // beginPos.w is intensity
 	vec4 endPos; // endPos.w is radius
 	vec4 color; // color.w is t
 };
 
-struct Frustum
-{
+struct Frustum {
     vec4 planes[4];
 };
 
@@ -21,10 +18,14 @@ layout(binding = 3) buffer Lights {
 	LightStruct lights[];
 };
 
-layout(binding = 5) buffer FrustumGrid {
-    int numFrustums;
+layout(binding = 5) buffer Frustums {
     Frustum frustums[];
 };
+
+layout(binding = 6) uniform Params {
+	int numLights;
+	float time;
+} params;
 
 layout(location = 0) in vec3 fragColor;
 layout(location = 1) in vec2 fragTexCoord;
@@ -47,10 +48,10 @@ void main() {
     vec3 viewDir = normalize(cameraPos.xyz - fragPosWorldSpace);
     float dist, lightIntensity, NdotL, lightRadius;
 
-    for(int i = 0; i < NUM_LIGHTS; ++i) {
+    for(int i = 0; i < params.numLights; ++i) {
 		vec3 beginPos = lights[i].beginPos.xyz;
 		vec3 endPos = lights[i].endPos.xyz;
-		float t = sin(lights[i].color.w);
+		float t = sin(params.time * .1f);
 
         lightPos = (1 - t) * beginPos + t * endPos;
         lightColor = lights[i].color.xyz;

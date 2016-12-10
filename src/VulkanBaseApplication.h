@@ -233,12 +233,10 @@ private:
 			axis.cleanup(device);
 			quad.cleanup(device);
 		}
-
 	} meshs;
 
-
-	// Uniform buffers
-	struct UniformData {
+	// vulkan buffers
+	struct VulkanBuffer {
 		VkBuffer buffer;
 		VkDeviceMemory memory;
 		//VkDescriptorBufferInfo descriptor;
@@ -250,9 +248,11 @@ private:
 		}
 	};
 
+	// uniform buffers
 	struct {
-		UniformData vsScene, vsSceneStaging;
-		UniformData csParams, csParamsStaging;
+		VulkanBuffer vsScene, vsSceneStaging;
+		VulkanBuffer csParams, csParamsStaging;
+		VulkanBuffer fsParams, fsParamsStaging;
 
 		void cleanup(VkDevice device) {
 			vsScene.cleanup(device);
@@ -260,85 +260,77 @@ private:
 			csParams.cleanup(device);
 			csParamsStaging.cleanup(device);
 		}
-	} uniformData;
+	} ubo;
 
 	// storage buffers
-	struct StorageData {
-		VkBuffer buffer;
-		VkDeviceMemory memory;
-		VkDeviceSize allocSize;
-
-		void cleanup(VkDevice device) {
-			vkDestroyBuffer(device, buffer, nullptr);
-			vkFreeMemory(device, memory, nullptr);
-		}
-	};
-
 	struct {
-		StorageData lights, lightsStaging;
-		StorageData frustumGrid, frustumGridStaging;
+		VulkanBuffer lights;
+		VulkanBuffer frustums;
 
 		void cleanup(VkDevice device) {
 			lights.cleanup(device);
-			lightsStaging.cleanup(device);
-			frustumGrid.cleanup(device);
-			frustumGridStaging.cleanup(device);
+			frustums.cleanup(device);
 		}
-	} storageData;
+	} sbo;
 
-	// uniform buffer object for vertex shader
-	struct UBO_vsScene {
+	// vs uniform layout
+	struct UBO_vsParams {
 		glm::mat4 model;
 		glm::mat4 view;
 		glm::mat4 proj;
 		glm::vec4 cameraPos;
 	};
 
+	// cs uniform layout
 	struct UBO_csParams {
 		glm::mat4 inverseProj;
 		glm::vec2 screenDimensions;
-		glm::vec2 numThreadGroups;
-		glm::vec2 numThreads;
+		glm::ivec2 numThreadGroups;
+		glm::ivec2 numThreads;
+		int numFrustums;
+		int numLights;
+		float time;
+	};
+
+	// fs uniform layout
+	struct UBO_fsParams {
+		int numLights;
+		float time;
 	};
 
 	// uniform buffer host data
 	struct {
-		UBO_vsScene vsScene;
+		UBO_vsParams vsParams;
 		UBO_csParams csParams;
-	} ubos;
-
-	// light information
-	struct LightStruct {
-		glm::vec4 beginPos; // beginPos.w = intensity
-		glm::vec4 endPos; // endPos.w = radius
-		glm::vec4 color; // color.w = t
-	};
+		UBO_fsParams fsParams;
+	} uboHostData;
 
 	// storage buffer object to store lights
-	#define MAX_NUM_LIGHT 100
+	#define MAX_NUM_LIGHTS 20
 	struct SBO_lights {
-		LightStruct lights[MAX_NUM_LIGHT];
-		int numLights;
+		// light information
+		struct {
+			glm::vec4 beginPos; // beginPos.w = intensity
+			glm::vec4 endPos; // endPos.w = radius
+			glm::vec4 color; // color.w = t
+		} lights[MAX_NUM_LIGHTS];;
 	};
 
-	// frustum definition
-	struct Frustum {
-		// for each plane, use a vec4 to represent
-		// xyz is normal, w is distance
-		glm::vec4 planes[4];
-	};
-
-	#define NUM_FRUSTRUMS 2000
+	#define MAX_NUM_FRUSTRUMS 2000
 	struct SBO_frustums {
-		int numFrustums;
-		Frustum frustums[NUM_FRUSTRUMS]; // 800*600 -> 50*40 
+		// frustum definition
+		struct {
+			// for each plane, use a vec4 to represent
+			// xyz is normal, w is distance
+			glm::vec4 planes[4];
+		} frustums[MAX_NUM_FRUSTRUMS]; // 800*600 -> 50*40
 	};
-	
+
 	// storage buffer host data
 	struct {
-		SBO_lights lights; 
+		SBO_lights lights;
 		SBO_frustums frustums;
-	} sbos;
+	} sboHostData;
 
 	// Textures
 	struct Texture {

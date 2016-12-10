@@ -175,6 +175,7 @@ void VulkanBaseApplication::updateUniformBuffer() {
 	//--------------------- fs uniform buffer---------------------------
 	fsParams.numLights = MAX_NUM_LIGHTS;
 	fsParams.time = time;
+	fsParams.debugMode = debugMode;
 
 	bufferSize = ubo.fsParamsStaging.allocSize;
 	vkMapMemory(device, ubo.fsParamsStaging.memory, 0, bufferSize, 0, &data);

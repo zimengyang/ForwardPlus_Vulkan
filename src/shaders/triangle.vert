@@ -16,9 +16,9 @@ layout(location = 3) in vec3 inNormal;
 layout(location = 0) out vec3 fragColor;
 layout(location = 1) out vec2 fragTexCoord;
 layout(location = 2) out vec3 fragNormal;
-layout(location = 3) out vec3 fragPosWorldSapce;
-layout(location = 4) out float depth;
-layout(location = 5) out vec4 cameraPos;
+layout(location = 3) out vec3 fragPosWorldSpace;
+layout(location = 4) out vec3 fragPosViewSpace;
+layout(location = 5) out vec3 cameraPosViewSpace;
 
 out gl_PerVertex {
     vec4 gl_Position;
@@ -31,13 +31,14 @@ void main() {
     fragNormal = inNormal;
 
     vec4 posWorldSpace = ubo.model * vec4(inPosition, 1.0);
-    fragPosWorldSapce = posWorldSpace.xyz / posWorldSpace.w;
+    fragPosWorldSpace = posWorldSpace.xyz / posWorldSpace.w;
 
     vec4 posViewSpace = ubo.view * posWorldSpace;
-    depth = posViewSpace.z / posViewSpace.w;
+    fragPosViewSpace = posViewSpace.xyz / posViewSpace.w;
 
     vec4 posProjSpace = ubo.proj * posViewSpace;
     gl_Position = posProjSpace;
 
-    cameraPos = ubo.cameraPos;
+    vec4 cameraPos = ubo.view * ubo.cameraPos;
+    cameraPosViewSpace = cameraPos.xyz / cameraPos.w;
 }

@@ -15,7 +15,7 @@ struct Frustum {
 layout(binding = 1) uniform sampler2D texSampler;
 
 layout(binding = 3) buffer Lights {
-	LightStruct lights[];
+	Light lights[];
 };
 
 layout(binding = 5) buffer Frustums {
@@ -25,27 +25,24 @@ layout(binding = 5) buffer Frustums {
 layout(binding = 6) uniform Params {
 	int numLights;
 	float time;
+    int debugMode;
 } params;
 
 layout(location = 0) in vec3 fragColor;
 layout(location = 1) in vec2 fragTexCoord;
 layout(location = 2) in vec3 normal;
 layout(location = 3) in vec3 fragPosWorldSpace;
-layout(location = 4) in float depth;
-layout(location = 5) in vec4 cameraPos;
+layout(location = 4) in vec3 fragPosViewSpace;
+layout(location = 5) in vec3 cameraPosViewSpace;
 
 layout(location = 0) out vec4 outColor;
 
 void main() {
 
-    //float depth = fragPosWorldSpace.z;
-    //outColor = vec4(abs(depth) * vec3(1,1,1), 1); // depth
-    //outColor = vec4(normal, 1.0); // normal
-
     vec3 finalColor = vec3(0,0,0);
     // lighting for each light
     vec3 lightPos, lightDir, lightColor;
-    vec3 viewDir = normalize(cameraPos.xyz - fragPosWorldSpace);
+    vec3 viewDir = normalize(cameraPosViewSpace.xyz - fragPosWorldSpace);
     float dist, lightIntensity, NdotL, lightRadius;
 
     for(int i = 0; i < params.numLights; ++i) {
@@ -78,6 +75,39 @@ void main() {
         finalColor += att * tmpColor;
 
     }
-    //finalColor = finalColor * texture(texSampler, fragTexCoord).xyz;
+
+    finalColor = finalColor * texture(texSampler, fragTexCoord).xyz;
     outColor = vec4(finalColor, 1.0);
+
+    switch(params.debugMode){
+        case 0: // lighting 
+        outColor = vec4(finalColor, 1.0);
+            break;
+
+        case 1: // texture coordinates
+        outColor = vec4(fragTexCoord, 0.0, 1.0);
+            break;
+
+        case 2: // normal in world space
+        outColor = vec4(abs(normal), 1.0);
+            break;
+
+        case 3: // position in world space
+        outColor = vec4(fragPosWorldSpace, 1.0);
+            break;
+
+        case 4: // position in view space
+        outColor = vec4(fragPosViewSpace, 1.0);
+            break;
+
+        case 5: // distance to camera in view space
+        float dist = 1.0 / distance(fragPosViewSpace, cameraPosViewSpace);
+        outColor = vec4(dist * vec3(1,1,1), 1.0);
+            break;
+
+        default:
+        outColor = vec4(finalColor, 1.0);
+            break;
+
+    }
 }

@@ -43,7 +43,7 @@ extern const int HEIGHT;
 //const std::string MODEL_PATH = "../src/models/chalet/chalet.obj";
 const std::string MODEL_PATH = "../src/models/sibenik/sibenik.obj";
 
-const std::string TEXTURE_PATH1 = "../src/models/chalet/chalet.jpg";
+const std::string TEXTURE_PATH1 = "../src/models/sibenik/kamen.png";
 const std::string TEXTURE_PATH2 = "../src/textures/bald_eagle_1280.jpg";
 const std::vector<std::string> TEXTURES_PATH = { TEXTURE_PATH1 ,TEXTURE_PATH2 };
 
@@ -296,6 +296,7 @@ private:
 	struct UBO_fsParams {
 		int numLights;
 		float time;
+		int debugMode;
 	};
 
 	// uniform buffer host data

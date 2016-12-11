@@ -166,6 +166,7 @@
   <ItemGroup>
     <ClCompile Include="src\main.cpp" />
     <ClCompile Include="src\VulkanBaseApplication.cpp" />
+    <ClCompile Include="src\VulkanTools.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\VulkanBaseApplication.h" />

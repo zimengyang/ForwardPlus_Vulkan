@@ -48,7 +48,7 @@ void main() {
     for(int i = 0; i < params.numLights; ++i) {
 		vec3 beginPos = lights[i].beginPos.xyz;
 		vec3 endPos = lights[i].endPos.xyz;
-		float t = sin(params.time * .1f);
+		float t = sin(params.time * i * .01f);
 
         lightPos = (1 - t) * beginPos + t * endPos;
         lightColor = lights[i].color.xyz;
@@ -80,7 +80,7 @@ void main() {
     outColor = vec4(finalColor, 1.0);
 
     switch(params.debugMode){
-        case 0: // lighting 
+        case 0: // lighting
         outColor = vec4(finalColor, 1.0);
             break;
 

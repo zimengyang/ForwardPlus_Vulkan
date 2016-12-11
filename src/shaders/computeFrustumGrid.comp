@@ -20,7 +20,7 @@ layout(binding = 3) buffer Lights {
 
 layout(binding = 4) uniform Params {
     mat4 inverseProj;
-    vec2 screenDimensions;
+    ivec2 screenDimensions;
     ivec2 numThreadGroups;
     ivec2 numThreads;
 	int numLights;
@@ -87,38 +87,30 @@ void main()
     // frustum vertices.
     vec4 screenSpace[4];
     // Top left point
-    screenSpace[0] = vec4( gl_GlobalInvocationID.xy * BLOCK_SIZE, -1.0f, 1.0f );
+    screenSpace[0] = vec4( gl_GlobalInvocationID.xy * BLOCK_SIZE, 1.0f, 1.0f );
     // Top right point
-    screenSpace[1] = vec4( vec2( gl_GlobalInvocationID.x + 1, gl_GlobalInvocationID.y ) * BLOCK_SIZE, -1.0f, 1.0f );
+    screenSpace[1] = vec4( vec2( gl_GlobalInvocationID.x + 1, gl_GlobalInvocationID.y ) * BLOCK_SIZE, 1.0f, 1.0f );
     // Bottom left point
-    screenSpace[2] = vec4( vec2( gl_GlobalInvocationID.x, gl_GlobalInvocationID.y + 1 ) * BLOCK_SIZE, -1.0f, 1.0f );
+    screenSpace[2] = vec4( vec2( gl_GlobalInvocationID.x, gl_GlobalInvocationID.y + 1 ) * BLOCK_SIZE, 1.0f, 1.0f );
     // Bottom right point
-    screenSpace[3] = vec4( vec2( gl_GlobalInvocationID.x + 1, gl_GlobalInvocationID.y + 1 ) * BLOCK_SIZE, -1.0f, 1.0f );
-
+    screenSpace[3] = vec4( vec2( gl_GlobalInvocationID.x + 1, gl_GlobalInvocationID.y + 1 ) * BLOCK_SIZE, 1.0f, 1.0f );
 
     vec3 viewSpace[4];
     // Now convert the screen space points to view space
-    for ( int i = 0; i < 4; i++ )
-    {
+    for ( int i = 0; i < 4; i++ ) {
         viewSpace[i] = ScreenToView( screenSpace[i] ).xyz;
     }
 
     // Now build the frustum planes from the view space points
+	Frustum frustum;
     // Left plane
-    frustums[index].planes[0] = ComputePlane( eyePos, viewSpace[2], viewSpace[0] );
+    frustum.planes[0] = ComputePlane( eyePos, viewSpace[2], viewSpace[0] );
     // Right plane
-    frustums[index].planes[1] = ComputePlane( eyePos, viewSpace[1], viewSpace[3] );
+    frustum.planes[1] = ComputePlane( eyePos, viewSpace[1], viewSpace[3] );
     // Top plane
-    frustums[index].planes[2] = ComputePlane( eyePos, viewSpace[0], viewSpace[1] );
+    frustum.planes[2] = ComputePlane( eyePos, viewSpace[0], viewSpace[1] );
     // Bottom plane
-    frustums[index].planes[3] = ComputePlane( eyePos, viewSpace[3], viewSpace[2] );
-
+    frustum.planes[3] = ComputePlane( eyePos, viewSpace[3], viewSpace[2] );
     // Store the computed frustum in global memory (if our thread ID is in bounds of the grid).
-    // if ( gl_GlobalInvocationID.x < params.numThreads.x &&
-    //      gl_GlobalInvocationID.y < params.numThreads.y )
-    // {
-    //     uint index = gl_GlobalInvocationID.x +
-    //         ( gl_GlobalInvocationID.y * uint(params.numThreads.x) );
-	//
-    // }
+    frustums[index] = frustum;
 }

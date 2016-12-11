@@ -1,0 +1,57 @@
+#version 450
+#extension GL_ARB_separate_shader_objects : enable
+#extension GL_ARB_shading_language_420pack : enable
+
+#define BLOCK_SIZE 16
+
+struct Light {
+	vec4 beginPos; // beginPos.w is intensity
+	vec4 endPos; // endPos.w is radius
+	vec4 color; // color.w is time
+};
+
+struct Frustum {
+    vec4 planes[4];
+};
+
+layout(binding = 4) uniform Params {
+    mat4 inverseProj;
+    ivec2 screenDimensions;
+    ivec2 numThreadGroups;
+    ivec2 numThreads;
+	int numLights;
+	int numFrustums;
+	float time;
+} params;
+
+layout(binding = 5) buffer Frustums {
+    Frustum frustums[];
+};
+
+layout(binding = 3) buffer Lights {
+   Light lights[];
+};
+
+layout(binding = 6) buffer LightIndex {
+	int lightIndex[];
+};
+
+layout(binding = 7) buffer LightGrid {
+	int lightGrid[];
+};
+
+layout (local_size_x = 16, local_size_y = 16) in;
+
+void main()
+{
+	if (gl_GlobalInvocationID.x >= params.numThreads.x
+	    || gl_GlobalInvocationID.y >= params.numThreads.y) {
+		return;
+	}
+
+	// tile index
+	uint index = gl_GlobalInvocationID.y * uint(params.numThreads.x)
+		+ gl_GlobalInvocationID.x;
+
+
+}

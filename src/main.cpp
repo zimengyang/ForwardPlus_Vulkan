@@ -4,9 +4,9 @@
 extern const int WIDTH = 800;
 extern const int HEIGHT = 600;
 
+VulkanBaseApplication app;
 
 int main() {
-	VulkanBaseApplication app;
 
 	try {
 		app.run();

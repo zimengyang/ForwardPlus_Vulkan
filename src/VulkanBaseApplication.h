@@ -170,32 +170,43 @@ private:
 	// Command pool
 	VDeleter<VkCommandPool> commandPool{ device, vkDestroyCommandPool };
 
-	// Command buffers
-	std::vector<VkCommandBuffer> commandBuffers;
-	VkCommandBuffer computeCommandBuffer;
-
 	// Semaphores
 	VDeleter<VkSemaphore> imageAvailableSemaphore{ device, vkDestroySemaphore };
 	VDeleter<VkSemaphore> renderFinishedSemaphore{ device, vkDestroySemaphore };
+
+	// Command buffers
+	struct CommandBuffers {
+		std::vector<VkCommandBuffer> display;
+		VkCommandBuffer compute;
+	} cmdBuffers;
+
+	struct ShaderStages {
+		VkPipelineShaderStageCreateInfo vs;
+		VkPipelineShaderStageCreateInfo fs;
+		VkPipelineShaderStageCreateInfo vs_axis;
+		VkPipelineShaderStageCreateInfo fs_axis;
+		VkPipelineShaderStageCreateInfo fs_quad;
+		VkPipelineShaderStageCreateInfo csFrustum;
+		VkPipelineShaderStageCreateInfo csLightList;
+	} shaderStage;
 
 	// Pipeline(s)
 	struct Pipelines{
 		VkPipeline graphics; // base pipeline
 		VkPipeline axis; // axis pipeline
 		VkPipeline quad; // quad pipeline
-		VkPipeline compute; // compute pipeline
+		VkPipeline computeLightList; // compute light list pipeline
 		VkPipeline computeFrustumGrid; // compute Frustum Grid pipeline
 
 		void cleanup(VkDevice device) {
 			vkDestroyPipeline(device, graphics, nullptr);
 			vkDestroyPipeline(device, axis, nullptr);
 			vkDestroyPipeline(device, quad, nullptr);
-			vkDestroyPipeline(device, compute, nullptr);
+			vkDestroyPipeline(device, computeLightList, nullptr);
 			vkDestroyPipeline(device, computeFrustumGrid, nullptr);
 		}
 
 	} pipelines;
-
 
 	// Vertex/Index buffer struct
 	struct VertexBuffer {
@@ -203,7 +214,6 @@ private:
 		VkBuffer buffer;
 		VkDeviceMemory mem;
 	};
-
 
 	struct IndexBuffer {
 		std::vector<uint32_t> indicesData;
@@ -223,7 +233,7 @@ private:
 		}
 	};
 
-	struct {
+	struct Meshes {
 		Mesh scene; // main scene mesh
 		Mesh axis; // axis mesh
 		Mesh quad; // quad mesh
@@ -249,7 +259,7 @@ private:
 	};
 
 	// uniform buffers
-	struct {
+	struct UniformBuffers {
 		VulkanBuffer vsScene, vsSceneStaging;
 		VulkanBuffer csParams, csParamsStaging;
 		VulkanBuffer fsParams, fsParamsStaging;
@@ -263,15 +273,26 @@ private:
 	} ubo;
 
 	// storage buffers
-	struct {
+	struct StorageBuffers {
 		VulkanBuffer lights;
 		VulkanBuffer frustums;
+		VulkanBuffer lightIndex;
+		VulkanBuffer lightGrid;
 
 		void cleanup(VkDevice device) {
 			lights.cleanup(device);
 			frustums.cleanup(device);
+			lightIndex.cleanup(device);
+			lightGrid.cleanup(device);
 		}
 	} sbo;
+
+	// forward plus params
+	struct ForwardPlusParams {
+		int numLights;
+		glm::ivec2 numThreads;
+		glm::ivec2 numThreadGroups;
+	} fpParams;
 
 	// vs uniform layout
 	struct UBO_vsParams {
@@ -284,7 +305,7 @@ private:
 	// cs uniform layout
 	struct UBO_csParams {
 		glm::mat4 inverseProj;
-		glm::vec2 screenDimensions;
+		glm::ivec2 screenDimensions;
 		glm::ivec2 numThreadGroups;
 		glm::ivec2 numThreads;
 		int numFrustums;
@@ -307,7 +328,8 @@ private:
 	} uboHostData;
 
 	// storage buffer object to store lights
-	#define MAX_NUM_LIGHTS 20
+	#define MAX_NUM_LIGHTS 10000
+	#define MAX_NUM_LIGHTS_PER_TILE 1024
 	struct SBO_lights {
 		// light information
 		struct {
@@ -317,7 +339,7 @@ private:
 		} lights[MAX_NUM_LIGHTS];;
 	};
 
-	#define MAX_NUM_FRUSTRUMS 2000
+	#define MAX_NUM_FRUSTRUMS 10000
 	struct SBO_frustums {
 		// frustum definition
 		struct {
@@ -353,11 +375,12 @@ private:
 	// shader modules
 	std::vector<VDeleter<VkShaderModule>> shaderModules;
 
-
 	/************************************************************/
 	//					Function Declaration
 	/************************************************************/
 	void initWindow();
+
+	void initForwardPlusParams();
 
 	void initVulkan();
 
@@ -382,6 +405,8 @@ private:
 
 	void createImageViews();
 
+	void createShaders();
+
 	void createGraphicsPipeline();
 
 	void createComputePipeline();
@@ -401,9 +426,6 @@ private:
 	void createIndexBuffer(std::vector<uint32_t> &indicesData, VkBuffer& buffer, VkDeviceMemory& bufferMemory);
 
 	void createSemaphores();
-
-	// check device suitabiliy
-	bool isDeviceSuitable(VkPhysicalDevice device);
 
 	// find queue families
 	QueueFamilyIndices findQueueFamilies(VkPhysicalDevice device);
@@ -434,10 +456,6 @@ private:
 
 	// read shader file from compiled binary file
 	static std::vector<char> readFile(const std::string& filename);
-
-	void createShaderModule(const std::vector<char> & code, VDeleter<VkShaderModule> & shaderModule);
-
-	VkPipelineShaderStageCreateInfo loadShader(std::string fileName, VkShaderStageFlagBits stage, int shaderModuleIndex);
 
 	// find memory type
 	uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties);
@@ -498,9 +516,26 @@ private:
 
 	void prepareTextures();
 
+	// tools
+	bool isDeviceSuitable(VkPhysicalDevice device);
+
+	VkBufferMemoryBarrier createBufferMemoryBarrier(
+		VkAccessFlags srcAccessMask,
+		VkAccessFlags dstAccessMask,
+		VkBuffer buffer, VkDeviceSize bufferSize);
+
+	void createShaderModule(
+		const std::vector<char> & code,
+		VDeleter<VkShaderModule> & shaderModule);
+
+	VkPipelineShaderStageCreateInfo loadShader(
+		std::string fileName, VkShaderStageFlagBits stage,
+		int shaderModuleIndex);
+
 	VkCommandBuffer beginSingleTimeCommands();
 
 	void endSingleTimeCommands(VkCommandBuffer commandBuffer);
+
 };
 
 // callbacks

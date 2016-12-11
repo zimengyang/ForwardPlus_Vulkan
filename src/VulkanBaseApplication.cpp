@@ -109,7 +109,7 @@ void VulkanBaseApplication::initWindow() {
 }
 
 void VulkanBaseApplication::initForwardPlusParams() {
-	fpParams.numLights = 100;
+	fpParams.numLights = 10000;
 	fpParams.numThreads = (glm::ivec2(WIDTH, HEIGHT) + 15) / 16;
 	fpParams.numThreadGroups = (fpParams.numThreads + 15) / 16;
 }

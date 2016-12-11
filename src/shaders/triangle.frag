@@ -2,6 +2,8 @@
 #extension GL_ARB_separate_shader_objects : enable
 #extension GL_ARB_shading_language_420pack : enable
 
+#define MAX_NUM_LIGHTS_PER_TILE 1024
+
 struct Light {
 	vec4 beginPos; // beginPos.w is intensity
 	vec4 endPos; // endPos.w is radius
@@ -136,7 +138,7 @@ void main() {
 
 		case 6: // fragment id map
 		//outColor = abs(vec4(frustums[index].planes[0].xyz, 1.f));
-        outColor = vec4(fragId / float(params.numThreads.x), 0.f, 1.f);
+        outColor = vec4(fragId / vec2(params.numThreads.xy), 0.f, 1.f);
         	break;
 
 		case 7: // light heat map
@@ -151,7 +153,7 @@ void main() {
 
 		case 9: // light heat map
 		//outColor = abs(vec4(frustums[index].planes[3].xyz, 1.f));
-        outColor = vec4(lightGrid[index] / 10.f, 0.f, 0.f, 1.f);
+        outColor = vec4(lightGrid[index] / float(MAX_NUM_LIGHTS_PER_TILE), 0.f, 0.f, 1.f);
 			break;
 
         default:

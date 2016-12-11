@@ -23,8 +23,8 @@ layout(binding = 4) uniform Params {
     mat4 inverseProj;
     ivec2 screenDimensions;
     ivec2 numThreads;
-	int numLights;
 	int numFrustums;
+	int numLights;
 	float time;
 } params;
 

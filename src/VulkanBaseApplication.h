@@ -319,8 +319,10 @@ private:
 	struct UBO_fsParams {
 		int numLights;
 		float time;
-		int debugMode; float pad;
+		int debugMode; 
+		float pad; // fuck
 		glm::ivec2 numThreads;
+		glm::ivec2 screenDimensions;
 	};
 
 	// uniform buffer host data

@@ -109,7 +109,7 @@ void VulkanBaseApplication::initWindow() {
 }
 
 void VulkanBaseApplication::initForwardPlusParams() {
-	fpParams.numLights = 10000;
+	fpParams.numLights = 2000;
 	fpParams.numThreads = (glm::ivec2(WIDTH, HEIGHT) + 15) / 16;
 	fpParams.numThreadGroups = (fpParams.numThreads + 15) / 16;
 }
@@ -181,6 +181,7 @@ void VulkanBaseApplication::updateUniformBuffer() {
 	fsParams.time = time;
 	fsParams.debugMode = debugMode;
 	fsParams.numThreads = fpParams.numThreads;
+	fsParams.screenDimensions = csParams.screenDimensions;
 
 	bufferSize = ubo.fsParamsStaging.allocSize;
 	vkMapMemory(device, ubo.fsParamsStaging.memory, 0, bufferSize, 0, &data);
@@ -1473,12 +1474,12 @@ void VulkanBaseApplication::createLightInfos() {
 		float posX = u(g) * 4.f * scale - 2.f * scale;
 		float posY = u(g) * 2.f + 2.f;
 		float posZ = u(g) * 2.f * scale - scale;
-		float intensity = u(g) * .2f;
+		float intensity = u(g) * .8f;
 
 		sboHostData.lights.lights[i].beginPos = glm::vec4(posX, posY, posZ, intensity);
 		sboHostData.lights.lights[i].endPos = sboHostData.lights.lights[i].beginPos;
 		sboHostData.lights.lights[i].endPos.y = u(g) * 2.f - 2.f;
-		sboHostData.lights.lights[i].endPos.w = u(g) * 2.0f * scale;
+		sboHostData.lights.lights[i].endPos.w = u(g) * 0.5f * scale;
 		sboHostData.lights.lights[i].color = glm::vec4(u(g), u(g), u(g), 0.f);
 	}
 }

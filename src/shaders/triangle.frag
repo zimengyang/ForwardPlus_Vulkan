@@ -22,7 +22,9 @@ layout(binding = 6) uniform Params {
 	int numLights;
 	float time;
     int debugMode;
+    // int padding;
 	ivec2 numThreads;
+    ivec2 screenDimensions;
 } params;
 
 layout(binding = 5) buffer Frustums {
@@ -34,7 +36,7 @@ layout(binding = 3) buffer Lights {
 };
 
 layout(binding = 7) buffer LightIndex {
-	int lightIndex[];
+	int lightIndices[];
 };
 
 layout(binding = 8) buffer LightGrid {
@@ -62,7 +64,7 @@ vec3 applyNormalMap(vec3 geomnor, vec3 normap) {
 
 void main() {
 
-	ivec2 fragId = ivec2(gl_FragCoord.xy / 16.f);
+	ivec2 fragId = ivec2(gl_FragCoord.x, params.screenDimensions.y - gl_FragCoord.y ) / 16;
 	int index = fragId.y * params.numThreads.x + fragId.x;
     vec3 finalColor = vec3(0,0,0);
     // lighting for each light
@@ -76,16 +78,23 @@ void main() {
     //vec3 normal = fragNormal;
     //vec3 normal = normalMap;
 
-    for(int i = 0; i < params.numLights; ++i) {
-		vec3 beginPos = lights[i].beginPos.xyz;
-		vec3 endPos = lights[i].endPos.xyz;
-		float t = sin(params.time * i * .01f);
+    uint lightIndexBegin = index * MAX_NUM_LIGHTS_PER_TILE;
+    uint lightNum = lightGrid[index];
+
+    // lightGrid[index] = lights need to be considered in tile
+    for(int i = 0; i < lightNum; ++i) {
+        int lightIndex = lightIndices[i + lightIndexBegin];
+		vec3 beginPos = lights[lightIndex].beginPos.xyz;
+		vec3 endPos = lights[lightIndex].endPos.xyz;
+		float t = sin(params.time * lightIndex * .0005f);
 
         lightPos = (1 - t) * beginPos + t * endPos;
-        lightColor = lights[i].color.xyz;
+        //lightPos = beginPos;
+
+        lightColor = lights[lightIndex].color.xyz;
         lightDir = lightPos - fragPosWorldSpace;
-        lightIntensity = lights[i].beginPos.w;
-        lightRadius = lights[i].endPos.w;
+        lightIntensity = lights[lightIndex].beginPos.w;
+        lightRadius = lights[lightIndex].endPos.w;
 
         dist = length(lightDir);
         lightDir = lightDir/dist;

@@ -2188,31 +2188,18 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
 
 	if (action == GLFW_PRESS)
 	{
-		switch (key)
-		{
-		case GLFW_KEY_ESCAPE:
-			glfwSetWindowShouldClose(window, GLFW_TRUE);
-			break;
-		case GLFW_KEY_0:
-			debugMode = 0;
-			break;
-		case GLFW_KEY_1:
-			debugMode = 1;
-			break;
-		case GLFW_KEY_2:
-			debugMode = 2;
-			break;
-		case GLFW_KEY_3:
-			debugMode = 3;
-			break;
-		case GLFW_KEY_4:
-			debugMode = 4;
-			break;
-		case GLFW_KEY_5:
-			debugMode = 5;
-			break;
-		default:
-			break;
+		if (key >= GLFW_KEY_0 && key <= GLFW_KEY_9) {
+			debugMode = key - GLFW_KEY_0;
+		}
+		else {
+			switch (key)
+			{
+			case GLFW_KEY_ESCAPE:
+				glfwSetWindowShouldClose(window, GLFW_TRUE);
+				break;
+			default:
+				break;
+			}
 		}
 	}
 

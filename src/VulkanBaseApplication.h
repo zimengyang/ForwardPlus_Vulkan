@@ -44,7 +44,7 @@ extern const int HEIGHT;
 const std::string MODEL_PATH = "../src/models/sibenik/sibenik.obj";
 
 const std::string TEXTURE_PATH1 = "../src/models/sibenik/kamen.png";
-const std::string TEXTURE_PATH2 = "../src/models/sibenik/kamen-bump.png";
+const std::string TEXTURE_PATH2 = "../src/models/sibenik/kamen-norm.png";
 const std::vector<std::string> TEXTURES_PATH = { TEXTURE_PATH1 ,TEXTURE_PATH2 };
 
 const std::vector<const char*> validationLayers = {

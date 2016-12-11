@@ -135,24 +135,24 @@ void main() {
             break;
 
 		case 6: // fragment id map
-		outColor = vec4(fragId.x / 50.f, fragId.y / 50.f, 0.f, 1.f);
-			break;
+		//outColor = abs(vec4(frustums[index].planes[0].xyz, 1.f));
+        outColor = vec4(fragId / float(params.numThreads.x), 0.f, 1.f);
+        	break;
 
 		case 7: // light heat map
-		outColor = abs(vec4(frustums[index].planes[0].xyz, 1.f));
-		// outColor = vec4(lightGrid[index] / 10.f, 0.f, 0.f, 1.f);
-			break;
-
-		case 8: // light heat map
 		outColor = abs(vec4(frustums[index].planes[1].xyz, 1.f));
 		// outColor = vec4(lightGrid[index] / 10.f, 0.f, 0.f, 1.f);
 			break;
 
-		case 9: // light heat map
+		case 8: // light heat map
 		outColor = abs(vec4(frustums[index].planes[2].xyz, 1.f));
 		// outColor = vec4(lightGrid[index] / 10.f, 0.f, 0.f, 1.f);
 			break;
 
+		case 9: // light heat map
+		//outColor = abs(vec4(frustums[index].planes[3].xyz, 1.f));
+        outColor = vec4(lightGrid[index] / 10.f, 0.f, 0.f, 1.f);
+			break;
 
         default:
         outColor = vec4(finalColor, 1.0);

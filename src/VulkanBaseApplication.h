@@ -268,7 +268,9 @@ private:
 			vsScene.cleanup(device);
 			vsSceneStaging.cleanup(device);
 			csParams.cleanup(device);
-			csParamsStaging.cleanup(device);
+			csParamsStaging.cleanup(device); 
+			fsParams.cleanup(device);
+			fsParamsStaging.cleanup(device);
 		}
 	} ubo;
 
@@ -370,6 +372,12 @@ private:
 		VkImage image;
 		VkDeviceMemory mem;
 		VkImageView view;
+		
+		void cleanup(VkDevice device) {
+			vkDestroyImageView(device, view, nullptr);
+			vkDestroyImage(device, image, nullptr);
+			vkFreeMemory(device, mem, nullptr);
+		}
 	};
 	FrameBufferAttachment depth;
 

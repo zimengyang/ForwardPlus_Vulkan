@@ -83,6 +83,11 @@ VulkanBaseApplication::~VulkanBaseApplication() {
 	// cleanup storage buffers
 	sbo.cleanup(device);
 
+	// depth clean up
+	depth.cleanup(device);
+
+	// pipelines clean up
+	pipelines.cleanup(device);
 }
 
 void VulkanBaseApplication::initWindow() {

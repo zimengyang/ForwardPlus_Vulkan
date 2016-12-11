@@ -3,6 +3,7 @@
 #extension GL_ARB_shading_language_420pack : enable
 
 #define BLOCK_SIZE 16
+#define MAX_NUM_LIGHTS_PER_TILE 1024
 
 struct Light {
 	vec4 beginPos; // beginPos.w is intensity
@@ -15,9 +16,9 @@ struct Frustum {
 };
 
 layout(binding = 4) uniform Params {
+	mat4 viewMat;
     mat4 inverseProj;
     ivec2 screenDimensions;
-    ivec2 numThreadGroups;
     ivec2 numThreads;
 	int numLights;
 	int numFrustums;
@@ -32,15 +33,31 @@ layout(binding = 3) buffer Lights {
    Light lights[];
 };
 
-layout(binding = 6) buffer LightIndex {
+layout(binding = 7) buffer LightIndex {
 	int lightIndex[];
 };
 
-layout(binding = 7) buffer LightGrid {
+layout(binding = 8) buffer LightGrid {
 	int lightGrid[];
 };
 
 layout (local_size_x = 16, local_size_y = 16) in;
+
+bool SphereInsidePlane(vec3 c, float r, vec3 N, float d) {
+	return dot(N, c) - d < -r;
+}
+
+bool SphereInsideFrustum(vec3 c, float r, Frustum frustum) {
+	bool result = true;
+
+	for (int i = 0; i < 4 && result; ++i) {
+		if (SphereInsidePlane(c, r, frustum.planes[i].xyz, frustum.planes[i].w)) {
+			result = false;
+		}
+	}
+
+	return result;
+}
 
 void main()
 {
@@ -52,6 +69,21 @@ void main()
 	// tile index
 	uint index = gl_GlobalInvocationID.y * uint(params.numThreads.x)
 		+ gl_GlobalInvocationID.x;
+	uint lightIndexBegin = index * MAX_NUM_LIGHTS_PER_TILE;
+	uint numLightsInTile = 0;
 
+	for (int i = 0; i < params.numLights; ++i) {
+		float t = sin(params.time * i * .01f);
+		vec3 beginPos = lights[i].beginPos.xyz;
+		vec3 endPos = lights[i].endPos.xyz;
+		vec4 pos = params.viewMat * vec4((1 - t) * beginPos + t * endPos, 1.f);
+		float radius = lights[i].endPos.w;
 
+		if (SphereInsideFrustum(pos.xyz, radius, frustums[index])) {
+			lightIndex[lightIndexBegin + numLightsInTile] = i;
+			numLightsInTile += 1;
+		}
+	}
+
+	lightGrid[index] = int(numLightsInTile);
 }

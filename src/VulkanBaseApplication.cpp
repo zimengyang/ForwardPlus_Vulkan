@@ -106,7 +106,7 @@ void VulkanBaseApplication::initWindow() {
 void VulkanBaseApplication::initForwardPlusParams() {
 	fpParams.numLights = 100;
 	fpParams.numThreads = (glm::ivec2(WIDTH, HEIGHT) + 15) / 16;
-	fpParams.numThreadGroups = (fpParams.numThreadGroups + 15) / 16;
+	fpParams.numThreadGroups = (fpParams.numThreads + 15) / 16;
 }
 
 void VulkanBaseApplication::mainLoop() {
@@ -157,9 +157,9 @@ void VulkanBaseApplication::updateUniformBuffer() {
 	copyBuffer(ubo.vsSceneStaging.buffer, ubo.vsScene.buffer, bufferSize);
 
 	//--------------------- cs uniform buffer---------------------------
+	csParams.viewMat = vsParams.view;
 	csParams.inverseProj = glm::inverse(vsParams.proj);
 	csParams.screenDimensions = glm::ivec2(WIDTH, HEIGHT);
-	csParams.numThreadGroups = fpParams.numThreadGroups;
 	csParams.numThreads = fpParams.numThreads;
 	csParams.numLights = fpParams.numLights;
 	csParams.time = time;
@@ -175,6 +175,7 @@ void VulkanBaseApplication::updateUniformBuffer() {
 	fsParams.numLights = fpParams.numLights;
 	fsParams.time = time;
 	fsParams.debugMode = debugMode;
+	fsParams.numThreads = fpParams.numThreads;
 
 	bufferSize = ubo.fsParamsStaging.allocSize;
 	vkMapMemory(device, ubo.fsParamsStaging.memory, 0, bufferSize, 0, &data);
@@ -1677,7 +1678,7 @@ void VulkanBaseApplication::createDescriptorSet() {
 	imageInfo[1].imageView = textures[1].imageView; // textureImageViews[1];
 	imageInfo[1].sampler = textures[1].sampler; // textureSamplers[1];
 
-	std::array<VkWriteDescriptorSet, 7> descriptorWrites = {};
+	std::array<VkWriteDescriptorSet, 9> descriptorWrites = {};
 
 	descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
 	descriptorWrites[0].dstSet = descriptorSet;

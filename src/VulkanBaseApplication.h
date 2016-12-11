@@ -304,9 +304,9 @@ private:
 
 	// cs uniform layout
 	struct UBO_csParams {
+		glm::mat4 viewMat;
 		glm::mat4 inverseProj;
 		glm::ivec2 screenDimensions;
-		glm::ivec2 numThreadGroups;
 		glm::ivec2 numThreads;
 		int numFrustums;
 		int numLights;
@@ -318,6 +318,7 @@ private:
 		int numLights;
 		float time;
 		int debugMode;
+		glm::ivec2 numThreads;
 	};
 
 	// uniform buffer host data

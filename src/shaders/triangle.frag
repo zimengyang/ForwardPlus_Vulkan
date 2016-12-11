@@ -12,22 +12,32 @@ struct Frustum {
     vec4 planes[4];
 };
 
+
 layout(binding = 1) uniform sampler2D texColorSampler;
 layout(binding = 2) uniform sampler2D texNormalSampler;
-
-layout(binding = 3) buffer Lights {
-	Light lights[];
-};
-
-layout(binding = 5) buffer Frustums {
-    Frustum frustums[];
-};
 
 layout(binding = 6) uniform Params {
 	int numLights;
 	float time;
     int debugMode;
+	ivec2 numThreads;
 } params;
+
+layout(binding = 5) buffer Frustums {
+    Frustum frustums[];
+};
+
+layout(binding = 3) buffer Lights {
+	Light lights[];
+};
+
+layout(binding = 7) buffer LightIndex {
+	int lightIndex[];
+};
+
+layout(binding = 8) buffer LightGrid {
+	int lightGrid[];
+};
 
 layout(location = 0) in vec3 fragColor;
 layout(location = 1) in vec2 fragTexCoord;
@@ -50,6 +60,8 @@ vec3 applyNormalMap(vec3 geomnor, vec3 normap) {
 
 void main() {
 
+	ivec2 fragId = ivec2(gl_FragCoord.xy / 16.f);
+	int index = fragId.y * params.numThreads.x + fragId.x;
     vec3 finalColor = vec3(0,0,0);
     // lighting for each light
     vec3 lightPos, lightDir, lightColor;
@@ -121,6 +133,26 @@ void main() {
         case 5: // normal map
         outColor = vec4(abs(normalMap), 1.0);
             break;
+
+		case 6: // fragment id map
+		outColor = vec4(fragId.x / 50.f, fragId.y / 50.f, 0.f, 1.f);
+			break;
+
+		case 7: // light heat map
+		outColor = abs(vec4(frustums[index].planes[0].xyz, 1.f));
+		// outColor = vec4(lightGrid[index] / 10.f, 0.f, 0.f, 1.f);
+			break;
+
+		case 8: // light heat map
+		outColor = abs(vec4(frustums[index].planes[1].xyz, 1.f));
+		// outColor = vec4(lightGrid[index] / 10.f, 0.f, 0.f, 1.f);
+			break;
+
+		case 9: // light heat map
+		outColor = abs(vec4(frustums[index].planes[2].xyz, 1.f));
+		// outColor = vec4(lightGrid[index] / 10.f, 0.f, 0.f, 1.f);
+			break;
+
 
         default:
         outColor = vec4(finalColor, 1.0);

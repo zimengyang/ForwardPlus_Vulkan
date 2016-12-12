@@ -24,6 +24,7 @@ public:
 
 	~VDeleter() {
 		cleanup();
+		//std::cout << "VDeleter deconstructor." << std::endl;
 	}
 
 	const T* operator &() const {

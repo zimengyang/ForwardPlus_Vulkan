@@ -174,6 +174,9 @@ private:
 	VDeleter<VkSemaphore> imageAvailableSemaphore{ device, vkDestroySemaphore };
 	VDeleter<VkSemaphore> renderFinishedSemaphore{ device, vkDestroySemaphore };
 
+	// shader modules
+	std::vector<VDeleter<VkShaderModule>> shaderModules;
+	
 	// Command buffers
 	struct CommandBuffers {
 		std::vector<VkCommandBuffer> display;
@@ -366,6 +369,13 @@ private:
 		VkImageView imageView;
 		VkDeviceMemory imageMemory;
 		VkSampler sampler;
+
+		void cleanup(VkDevice device) {
+			vkDestroyImageView(device, imageView, nullptr);
+			vkDestroyImage(device, image, nullptr);
+			vkFreeMemory(device, imageMemory, nullptr);
+			vkDestroySampler(device, sampler, nullptr);
+		}
 	};
 	std::array<Texture, 2> textures;
 
@@ -383,8 +393,6 @@ private:
 	};
 	FrameBufferAttachment depth;
 
-	// shader modules
-	std::vector<VDeleter<VkShaderModule>> shaderModules;
 
 	/************************************************************/
 	//					Function Declaration

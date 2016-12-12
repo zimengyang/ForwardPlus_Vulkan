@@ -79,11 +79,13 @@ VulkanBaseApplication::~VulkanBaseApplication() {
 
 	//  textures
 	for (auto texture : textures) {
-		vkDestroyImageView(device, texture.imageView, nullptr);
-		vkDestroyImage(device, texture.image, nullptr);
-		vkFreeMemory(device, texture.imageMemory, nullptr);
-		vkDestroySampler(device, texture.sampler, nullptr);
+		texture.cleanup(device);
 	}
+
+	// shaders destroy
+	//for (auto shader : shaderModules) {
+	//	vkDestroyShaderModule(device, shader, nullptr);
+	//}
 
 	// mesh buffers clean up
 	meshs.cleanup(device);
@@ -99,6 +101,10 @@ VulkanBaseApplication::~VulkanBaseApplication() {
 
 	// pipelines clean up
 	pipelines.cleanup(device);
+
+	// debug information
+	//std::cout << "Application deconstructor." << std::endl;
+
 }
 
 void VulkanBaseApplication::initWindow() {
@@ -473,7 +479,7 @@ void VulkanBaseApplication::createImageViews() {
 }
 
 void VulkanBaseApplication::createShaders() {
-	shaderModules.resize(7);
+	shaderModules.resize(7, VDeleter<VkShaderModule>{device, vkDestroyShaderModule});
 	shaderStage.vs = loadShader("../src/shaders/triangle.vert.spv", VK_SHADER_STAGE_VERTEX_BIT, 0);
 	shaderStage.fs = loadShader("../src/shaders/triangle.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT, 1);
 	shaderStage.vs_axis = loadShader("../src/shaders/axis.vert.spv", VK_SHADER_STAGE_VERTEX_BIT, 2);
@@ -1082,6 +1088,9 @@ void VulkanBaseApplication::createVertexBuffer(std::vector<Vertex> & verticesDat
 		buffer, bufferMemory);
 
 	copyBuffer(stagingBuffer, buffer, bufferSize);
+
+	vkDestroyBuffer(device, stagingBuffer, nullptr);
+	vkFreeMemory(device, stagingBufferMemory, nullptr);
 }
 
 
@@ -1108,6 +1117,9 @@ void VulkanBaseApplication::createIndexBuffer(std::vector<uint32_t> &indicesData
 		buffer, bufferMemory);
 
 	copyBuffer(stagingBuffer, buffer, bufferSize);
+
+	vkDestroyBuffer(device, stagingBuffer, nullptr);
+	vkFreeMemory(device, stagingBufferMemory, nullptr);
 }
 
 
@@ -1813,6 +1825,9 @@ void VulkanBaseApplication::createTextureImage(const std::string& texFilename, V
 	copyImage(stagingImage, texImage, texWidth, texHeight);
 
 	transitionImageLayout(texImage, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+
+	vkDestroyImage(device, stagingImage, nullptr);
+	vkFreeMemory(device, stagingImageMemory, nullptr);
 }
 
 

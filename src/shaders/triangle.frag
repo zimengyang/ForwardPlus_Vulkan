@@ -3,6 +3,7 @@
 #extension GL_ARB_shading_language_420pack : enable
 
 #define MAX_NUM_LIGHTS_PER_TILE 1024
+#define PIXELS_PER_TILE 8
 
 struct Light {
 	vec4 beginPos; // beginPos.w is intensity
@@ -64,8 +65,8 @@ vec3 applyNormalMap(vec3 geomnor, vec3 normap) {
 
 void main() {
 
-	ivec2 fragId = ivec2(gl_FragCoord.x, params.screenDimensions.y - gl_FragCoord.y ) / 16;
-	int index = fragId.y * params.numThreads.x + fragId.x;
+	ivec2 tileID = ivec2(gl_FragCoord.x, params.screenDimensions.y - gl_FragCoord.y ) / PIXELS_PER_TILE;
+	int index = tileID.y * params.numThreads.x + tileID.x;
     vec3 finalColor = vec3(0,0,0);
     // lighting for each light
     vec3 lightPos, lightDir, lightColor;
@@ -74,9 +75,8 @@ void main() {
 
     vec3 textureColor = texture(texColorSampler, fragTexCoord).xyz;
     vec3 normalMap = texture(texNormalSampler, fragTexCoord).xyz ;
-    vec3 normal = applyNormalMap(fragNormal, normalMap);
-    //vec3 normal = fragNormal;
-    //vec3 normal = normalMap;
+    //vec3 normal = applyNormalMap(fragNormal, normalMap);
+    vec3 normal = fragNormal;
 
     uint lightIndexBegin = index * MAX_NUM_LIGHTS_PER_TILE;
     uint lightNum = lightGrid[index];
@@ -84,30 +84,27 @@ void main() {
     // lightGrid[index] = lights need to be considered in tile
     for(int i = 0; i < lightNum; ++i) {
         int lightIndex = lightIndices[i + lightIndexBegin];
-		vec3 beginPos = lights[lightIndex].beginPos.xyz;
-		vec3 endPos = lights[lightIndex].endPos.xyz;
+
+        Light currentLight = lights[lightIndex];
+
+		vec3 beginPos = currentLight.beginPos.xyz;
+		vec3 endPos = currentLight.endPos.xyz;
 		float t = sin(params.time * lightIndex * .0005f);
 
         lightPos = (1 - t) * beginPos + t * endPos;
-        //lightPos = beginPos;
-
-        lightColor = lights[lightIndex].color.xyz;
+        lightColor = currentLight.color.xyz;
         lightDir = lightPos - fragPosWorldSpace;
-        lightIntensity = lights[lightIndex].beginPos.w;
-        lightRadius = lights[lightIndex].endPos.w;
+        lightIntensity = currentLight.beginPos.w;
+        lightRadius = currentLight.endPos.w;
 
         dist = length(lightDir);
         lightDir = lightDir/dist;
 
-        // attenuation
-        //float att = max(0, lightRadius - dist);
+        NdotL = max(0, dot(normal, lightDir));
 
-        NdotL = dot(normal, lightDir);
-
-        //finalColor += max(0, NdotL) * lightColor * att * lightIntensity;
         vec3 halfDir = normalize(lightDir + viewDir);
         float specAngle = max(dot(halfDir, normal), 0.0);
-        float specular = pow(specAngle, 16.0);
+        float specular = pow(specAngle, 32.0);
 
         vec3 tmpColor = (0.8 * NdotL + 0.2 * specular) * lightColor * lightIntensity;
 
@@ -145,24 +142,22 @@ void main() {
         outColor = vec4(abs(normalMap), 1.0);
             break;
 
-		case 6: // fragment id map
-		//outColor = abs(vec4(frustums[index].planes[0].xyz, 1.f));
-        outColor = vec4(fragId / vec2(params.numThreads.xy), 0.f, 1.f);
-        	break;
+		// case 6: // fragment id map
+  //       outColor = vec4(tileID / vec2(params.numThreads.xy), 0.f, 1.f);
+  //       	break;
 
-		case 7: // light heat map
-		outColor = abs(vec4(frustums[index].planes[1].xyz, 1.f));
-		// outColor = vec4(lightGrid[index] / 10.f, 0.f, 0.f, 1.f);
-			break;
-
-		case 8: // light heat map
-		outColor = abs(vec4(frustums[index].planes[2].xyz, 1.f));
-		// outColor = vec4(lightGrid[index] / 10.f, 0.f, 0.f, 1.f);
-			break;
-
-		case 9: // light heat map
-		//outColor = abs(vec4(frustums[index].planes[3].xyz, 1.f));
-        outColor = vec4(lightGrid[index] / float(MAX_NUM_LIGHTS_PER_TILE), 0.f, 0.f, 1.f);
+		case 6: // light heat map
+        float tmp = lightGrid[index];
+        if(tmp <= 100.f)
+        {
+            outColor = vec4( 0.f, 0.f, tmp / 100.f, 1.f );
+        }
+        else if(tmp > 100.f && tmp <= 200.f) {
+            outColor = vec4( 0.f, (tmp - 100.f) / 100.0f, 1.f, 1.f );
+        }
+        else {
+            outColor = vec4( (tmp - 200.f) / 100.f, 1.f, 1.f, 1.f );
+        }
 			break;
 
         default:

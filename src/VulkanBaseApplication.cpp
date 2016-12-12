@@ -9,6 +9,8 @@
 #define TINYOBJLOADER_IMPLEMENTATION
 #include <tiny_obj_loader.h>
 
+#include <cstring>
+
 VkResult CreateDebugReportCallbackEXT(VkInstance instance, const VkDebugReportCallbackCreateInfoEXT* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkDebugReportCallbackEXT* pCallback) {
 	auto func = (PFN_vkCreateDebugReportCallbackEXT)vkGetInstanceProcAddr(instance, "vkCreateDebugReportCallbackEXT");
 	if (func != nullptr) {
@@ -36,6 +38,15 @@ glm::vec2 cameraRotAngles; // for camera rotation
 
 // deubg mode int
 int debugMode;
+bool bDrawAxis = false;
+
+// forward plus pixels per tile
+// along one dimension, actural number will be the square of following values 
+const int PIXELS_PER_TILE = 8; 
+const int TILES_PER_THREADGROUP = 16;
+
+// number of lights
+const int NUM_OF_LIGHTS = 1500;
 
 namespace std {
 	template<> struct hash<Vertex> {
@@ -96,10 +107,11 @@ void VulkanBaseApplication::initWindow() {
 	glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
 	glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
 
-	window = glfwCreateWindow(WIDTH, HEIGHT, "Vulkan", nullptr, nullptr);
+	std::string appName = "Vulkan | number of lights = " + std::to_string(NUM_OF_LIGHTS);
+	window = glfwCreateWindow(WIDTH, HEIGHT, appName.c_str(), nullptr, nullptr);
 
 	// set camera position
-	cameraPos = glm::vec3(-5.0f, 0.0f, 0.0f);
+	cameraPos = glm::vec3(-6.0f, 1.5f, 0.0f);
 
 	// setup callback functions
 	glfwSetCursorPosCallback(window, cursorPosCallback);
@@ -109,9 +121,9 @@ void VulkanBaseApplication::initWindow() {
 }
 
 void VulkanBaseApplication::initForwardPlusParams() {
-	fpParams.numLights = 2000;
-	fpParams.numThreads = (glm::ivec2(WIDTH, HEIGHT) + 15) / 16;
-	fpParams.numThreadGroups = (fpParams.numThreads + 15) / 16;
+	fpParams.numLights = NUM_OF_LIGHTS;
+	fpParams.numThreads = (glm::ivec2(WIDTH, HEIGHT) + PIXELS_PER_TILE - 1) / PIXELS_PER_TILE;
+	fpParams.numThreadGroups = (fpParams.numThreads + TILES_PER_THREADGROUP - 1) / TILES_PER_THREADGROUP;
 }
 
 void VulkanBaseApplication::mainLoop() {
@@ -812,22 +824,24 @@ void VulkanBaseApplication::createCommandBuffers() {
 		////vkCmdDraw(cmdBuffers.display[i], vertices.size(), 1, 0, 0);
 		//vkCmdDrawIndexed(cmdBuffers.display[i], (uint32_t)indices_quad.size(), 1, 0, 0, 0);
 
+		if (bDrawAxis)
+		{
+			// draw axis here (line list)
+			// bind pipeline
+			vkCmdBindPipeline(cmdBuffers.display[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines.axis);
+			// binding the vertex buffer for axis
+			VkBuffer vertexBuffers_axis[] = { meshs.axis.vertices.buffer };
+			VkDeviceSize offsets_axis[] = { 0 };
+			vkCmdBindVertexBuffers(cmdBuffers.display[i], 0, 1, vertexBuffers_axis, offsets_axis);
 
-		// draw axis here (line list)
-		// bind pipeline
-		vkCmdBindPipeline(cmdBuffers.display[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines.axis);
-		// binding the vertex buffer for axis
-		VkBuffer vertexBuffers_axis[] = { meshs.axis.vertices.buffer };
-		VkDeviceSize offsets_axis[] = { 0 };
-		vkCmdBindVertexBuffers(cmdBuffers.display[i], 0, 1, vertexBuffers_axis, offsets_axis);
+			vkCmdBindIndexBuffer(cmdBuffers.display[i], meshs.axis.indices.buffer, 0, VK_INDEX_TYPE_UINT32);
 
-		vkCmdBindIndexBuffer(cmdBuffers.display[i], meshs.axis.indices.buffer, 0, VK_INDEX_TYPE_UINT32);
+			vkCmdBindDescriptorSets(cmdBuffers.display[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSet, 0, nullptr);
 
-		vkCmdBindDescriptorSets(cmdBuffers.display[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSet, 0, nullptr);
-
-		//vkCmdDraw(cmdBuffers.display[i], vertices.size(), 1, 0, 0);
-		vkCmdDrawIndexed(cmdBuffers.display[i], (uint32_t)meshs.axis.indices.indicesData.size(), 1, 0, 0, 0);
-
+			//vkCmdDraw(cmdBuffers.display[i], vertices.size(), 1, 0, 0);
+			vkCmdDrawIndexed(cmdBuffers.display[i], (uint32_t)meshs.axis.indices.indicesData.size(), 1, 0, 0, 0);
+		}
+		
 
 		vkCmdEndRenderPass(cmdBuffers.display[i]);
 
@@ -1471,15 +1485,15 @@ void VulkanBaseApplication::createLightInfos() {
 	float scale = 3.0f;
 
 	for (int i = 0; i < fpParams.numLights; ++i) {
-		float posX = u(g) * 4.f * scale - 2.f * scale;
-		float posY = u(g) * 2.f + 2.f;
-		float posZ = u(g) * 2.f * scale - scale;
-		float intensity = u(g) * .8f;
+		float posX = u(g) * 15.0f - 7.5f;  // -7.5 ~ 7.5
+		float posY = u(g) *  1.5f + 0.0f;  //  0 ~ 1.5
+		float posZ = u(g) * 5.0f - 2.5f;  // -2 ~ 2
+		float intensity = u(g) * 1.5f;
 
 		sboHostData.lights.lights[i].beginPos = glm::vec4(posX, posY, posZ, intensity);
 		sboHostData.lights.lights[i].endPos = sboHostData.lights.lights[i].beginPos;
-		sboHostData.lights.lights[i].endPos.y = u(g) * 2.f - 2.f;
-		sboHostData.lights.lights[i].endPos.w = u(g) * 0.5f * scale;
+		sboHostData.lights.lights[i].endPos.y = u(g) * 1.0f - 2.0f;  // -2 ~ -1
+		sboHostData.lights.lights[i].endPos.w = u(g) * 1.7f; // radius
 		sboHostData.lights.lights[i].color = glm::vec4(u(g), u(g), u(g), 0.f);
 	}
 }

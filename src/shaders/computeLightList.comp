@@ -41,8 +41,6 @@ layout(binding = 8) buffer LightGrid {
 	int lightGrid[];
 };
 
-layout (local_size_x = 16, local_size_y = 16) in;
-
 bool SphereInsidePlane(vec3 c, float r, vec3 N, float d) {
 	return dot(N, c) - d < -r;
 }
@@ -59,6 +57,7 @@ bool SphereInsideFrustum(vec3 c, float r, Frustum frustum) {
 	return result;
 }
 
+layout (local_size_x = 16, local_size_y = 16) in;
 void main()
 {
 	if (gl_GlobalInvocationID.x >= params.numThreads.x
@@ -77,7 +76,6 @@ void main()
 		vec3 beginPos = lights[i].beginPos.xyz;
 		vec3 endPos = lights[i].endPos.xyz;
 		vec4 pos = params.viewMat * vec4((1 - t) * beginPos + t * endPos, 1.f);
-		//vec4 pos = params.viewMat * vec4(beginPos, 1.f);
 		
 		float radius = lights[i].endPos.w;
 

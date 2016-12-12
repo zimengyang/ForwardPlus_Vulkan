@@ -3,7 +3,7 @@ Forward Plus Rendering in Vulkan
 
 **Final Project of CIS 565: GPU Programming and Architecture, University of Pennsylvania**
 
-* [Peng Liang](https://github.com/itoupeter), [Zimeng Yang](https://github.com/zimengyang)
+* [Liang Peng](https://github.com/itoupeter), [Zimeng Yang](https://github.com/zimengyang)
 * Tested on: Windows 10, i7-4850 @ 2.3GHz 16GB, GT 750M (Personal Laptop)
 
 # Forward Plus Rendering
@@ -49,8 +49,10 @@ Basic algorithm for light culling:
 
 
 ## Milestone
-* 11/21 Basic Vulkan Application Framework
+### 11/21 Basic Vulkan Application Framework
+
 ![basic_vulkan](./img/readme/vulkanBase.png)
+
   * Vulkan environment setup and initialization
   * Basic rendering pipelines (multiple)
   * Vertex and index buffers (multiple)
@@ -58,18 +60,27 @@ Basic algorithm for light culling:
   * Basic camera control
   * [Presentation Slides](./img/slides/milestone1.pdf)
 
-* 11/28 Basic Lighting in Vulkan / Debug Views
-![basic_lighting](./img/basic_lighting.gif)
+### 11/28 Basic Lighting in Vulkan / Debug Views
+
+![basic_lighting](./img/gifs/basic_lighting.gif)
+
   * Debug views: depth, normal
   * Basic lighting: Lambert, Blinn-Phong
   * Compute pipeline in progress
   * [Presentation Slides](./img/slides/milestone2.pdf)
 
-debug views:
+### 12/12 Forward+
 
-|depth|normal|
-|------|------|
-|![](./img/debug_views/depth_sibenik.png)|![](./img/debug_views/normal_sibenik.png)|
+![basic_lighting](./img/gifs/milestone3_1600lights.gif)
+
+![basic_lighting](./img/gifs/milestone3_heatmap_1600lights.gif)
+
+  * Compute pipeline
+    * Compute grid frustum
+    * Compute light list
+  * Light culling
+  * Shading
+  * [Presentation Slides](./img/slides/milestone3.pdf)
 
 
 # References:

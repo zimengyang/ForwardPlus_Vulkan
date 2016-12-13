@@ -42,8 +42,8 @@ int debugMode;
 bool bDrawAxis = false;
 
 // forward plus pixels per tile
-// along one dimension, actural number will be the square of following values 
-const int PIXELS_PER_TILE = 8; 
+// along one dimension, actural number will be the square of following values
+const int PIXELS_PER_TILE = 8;
 const int TILES_PER_THREADGROUP = 16;
 
 // number of lights
@@ -161,7 +161,7 @@ void VulkanBaseApplication::resetTitleAndTiming() {
 	prevTime = currentTime;
 
 	std::stringstream title;
-	title << "Vulkan Forward Plus " 
+	title << "Vulkan Forward Plus "
 		<< "[num_lights = " << NUM_OF_LIGHTS << "] "
 		<< "[" << elapsedTime << " ms/frame] "
 		<< "[FPS = " << 1000.0f * float(frameCount) / totalElapsedTime << "] "
@@ -195,7 +195,7 @@ void VulkanBaseApplication::updateUniformBuffer() {
 	vsParams.view = glm::lookAt(cameraPos, glm::vec3(0, 0, 0), glm::vec3(0.0f, 1.0f, 0.0f));
 
 	// projection matrix
-	vsParams.proj = glm::perspective(glm::radians(45.0f), swapChainExtent.width / (float)swapChainExtent.height, 0.01f, 100.0f);
+	vsParams.proj = glm::perspective(glm::radians(45.0f), swapChainExtent.width / (float)swapChainExtent.height, 1.f, 20.0f);
 	vsParams.proj[1][1] *= -1;
 
 	// cameraPos
@@ -878,7 +878,7 @@ void VulkanBaseApplication::createCommandBuffers() {
 			//vkCmdDraw(cmdBuffers.display[i], vertices.size(), 1, 0, 0);
 			vkCmdDrawIndexed(cmdBuffers.display[i], (uint32_t)meshs.axis.indices.indicesData.size(), 1, 0, 0, 0);
 		}
-		
+
 
 		vkCmdEndRenderPass(cmdBuffers.display[i]);
 
@@ -1036,13 +1036,10 @@ void VulkanBaseApplication::createRenderPass() {
 	VkAttachmentDescription colorAttachment = {};
 	colorAttachment.format = swapChainImageFormat;
 	colorAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
-
 	colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
 	colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-
 	colorAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
 	colorAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-
 	colorAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 	colorAttachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
 
@@ -1055,7 +1052,7 @@ void VulkanBaseApplication::createRenderPass() {
 	depthAttachment.format = findDepthFormat();
 	depthAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
 	depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-	depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+	depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
 	depthAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
 	depthAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
 	depthAttachment.initialLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;

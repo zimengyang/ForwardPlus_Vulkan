@@ -129,7 +129,6 @@ public:
 	// clean up resources
 	~VulkanBaseApplication();
 
-
 private:
 	GLFWwindow* window;
 
@@ -555,6 +554,7 @@ private:
 
 	void endSingleTimeCommands(VkCommandBuffer commandBuffer);
 
+	void resetTitleAndTiming();
 };
 
 // callbacks

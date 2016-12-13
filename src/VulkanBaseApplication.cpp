@@ -10,6 +10,7 @@
 #include <tiny_obj_loader.h>
 
 #include <cstring>
+#include <sstream>
 
 VkResult CreateDebugReportCallbackEXT(VkInstance instance, const VkDebugReportCallbackCreateInfoEXT* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkDebugReportCallbackEXT* pCallback) {
 	auto func = (PFN_vkCreateDebugReportCallbackEXT)vkGetInstanceProcAddr(instance, "vkCreateDebugReportCallbackEXT");
@@ -133,13 +134,42 @@ void VulkanBaseApplication::initForwardPlusParams() {
 }
 
 void VulkanBaseApplication::mainLoop() {
+
 	while (!glfwWindowShouldClose(window)) {
 		glfwPollEvents();
 		updateUniformBuffer();
 		drawFrame();
+
+		resetTitleAndTiming();
 	}
 
 	vkDeviceWaitIdle(device);
+}
+
+void VulkanBaseApplication::resetTitleAndTiming() {
+	// timer, I know that put timer-related stuff here is ugly
+	static int frameCount = 0;
+	static auto prevTime = std::chrono::high_resolution_clock::now();
+	static auto currentTime = std::chrono::high_resolution_clock::now();
+	static float totalElapsedTime = 0;
+
+	// timing and reset titles
+	frameCount++;
+	currentTime = std::chrono::high_resolution_clock::now();
+	float elapsedTime = std::chrono::duration_cast<std::chrono::milliseconds>(currentTime - prevTime).count(); // ms
+	totalElapsedTime += elapsedTime;
+	prevTime = currentTime;
+
+	std::stringstream title;
+	title << "Vulkan Forward Plus " 
+		<< "[num_lights = " << NUM_OF_LIGHTS << "] "
+		<< "[" << elapsedTime << " ms/frame] "
+		<< "[FPS = " << 1000.0f * float(frameCount) / totalElapsedTime << "] "
+		<< "[resolution = " << WIDTH << "*" << HEIGHT << "]";
+	glfwSetWindowTitle(window, title.str().c_str());
+	if (frameCount % 50 == 0) {
+		std::cout << "Frame count = " << frameCount << " " << title.str() << std::endl;
+	}
 }
 
 void VulkanBaseApplication::updateUniformBuffer() {
@@ -211,6 +241,7 @@ void VulkanBaseApplication::updateUniformBuffer() {
 
 
 void VulkanBaseApplication::drawFrame() {
+
 	uint32_t imageIndex;
 	vkAcquireNextImageKHR(device, swapChain, std::numeric_limits<uint64_t>::max(), imageAvailableSemaphore, VK_NULL_HANDLE, &imageIndex);
 
@@ -480,8 +511,8 @@ void VulkanBaseApplication::createImageViews() {
 
 void VulkanBaseApplication::createShaders() {
 	shaderModules.resize(7, VDeleter<VkShaderModule>{device, vkDestroyShaderModule});
-	shaderStage.vs = loadShader("../src/shaders/triangle.vert.spv", VK_SHADER_STAGE_VERTEX_BIT, 0);
-	shaderStage.fs = loadShader("../src/shaders/triangle.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT, 1);
+	shaderStage.vs = loadShader("../src/shaders/final_shading.vert.spv", VK_SHADER_STAGE_VERTEX_BIT, 0);
+	shaderStage.fs = loadShader("../src/shaders/final_shading.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT, 1);
 	shaderStage.vs_axis = loadShader("../src/shaders/axis.vert.spv", VK_SHADER_STAGE_VERTEX_BIT, 2);
 	shaderStage.fs_axis = loadShader("../src/shaders/axis.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT, 3);
 	shaderStage.fs_quad = loadShader("../src/shaders/quad.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT, 4);;

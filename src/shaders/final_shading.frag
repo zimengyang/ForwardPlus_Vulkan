@@ -138,15 +138,7 @@ void main() {
         outColor = vec4(fragPosWorldSpace, 1.0);
             break;
 
-        case 5: // normal map
-        outColor = vec4(abs(normalMap), 1.0);
-            break;
-
-		// case 6: // fragment id map
-  //       outColor = vec4(tileID / vec2(params.numThreads.xy), 0.f, 1.f);
-  //       	break;
-
-		case 6: // light heat map
+		case 5: // light heat map
         float tmp = lightGrid[index];
         if(tmp <= 100.f)
         {
@@ -158,6 +150,8 @@ void main() {
         else {
             outColor = vec4( (tmp - 200.f) / 100.f, 1.f, 1.f, 1.f );
         }
+
+        outColor *= vec4(textureColor, 1.0);
 			break;
 
         default:

@@ -175,7 +175,7 @@ private:
 
 	// shader modules
 	std::vector<VDeleter<VkShaderModule>> shaderModules;
-	
+
 	// Command buffers
 	struct CommandBuffers {
 		std::vector<VkCommandBuffer> display;
@@ -312,7 +312,6 @@ private:
 		glm::mat4 inverseProj;
 		glm::ivec2 screenDimensions;
 		glm::ivec2 numThreads;
-		int numFrustums;
 		int numLights;
 		float time;
 	};
@@ -321,7 +320,7 @@ private:
 	struct UBO_fsParams {
 		int numLights;
 		float time;
-		int debugMode; 
+		int debugMode;
 		float pad; // fuck
 		glm::ivec2 numThreads;
 		glm::ivec2 screenDimensions;

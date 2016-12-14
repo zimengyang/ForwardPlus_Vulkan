@@ -1891,7 +1891,7 @@ void VulkanBaseApplication::createDescriptorSetLayout() {
 	depthLayoutBinding.descriptorCount = 1;
 	depthLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
 	depthLayoutBinding.pImmutableSamplers = nullptr;
-	depthLayoutBinding.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+	depthLayoutBinding.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
 
 	// fs material uniform buffer binding
 	VkDescriptorSetLayoutBinding fsMaterialUniformBinding = {};
@@ -2771,7 +2771,12 @@ void VulkanBaseApplication::createDescriptorSetsForMeshGroup(VkDescriptorSet & d
 	imageInfo[2].imageView = useSpec > 0 ? specMap.imageView : textures[1].imageView; //  normal map;
 	imageInfo[2].sampler = useSpec > 0 ? specMap.sampler : textures[1].sampler; // normal map;
 
-	std::array<VkWriteDescriptorSet, 9> descriptorWrites = {};
+	VkDescriptorImageInfo depthImageInfo = {};
+	depthImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+	depthImageInfo.imageView = depthPrepass.depth.view;
+	depthImageInfo.sampler = depthPrepass.depthSampler;
+
+	std::array<VkWriteDescriptorSet, 10> descriptorWrites = {};
 
 	descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
 	descriptorWrites[0].dstSet = descriptorSet;
@@ -2844,6 +2849,14 @@ void VulkanBaseApplication::createDescriptorSetsForMeshGroup(VkDescriptorSet & d
 	descriptorWrites[8].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
 	descriptorWrites[8].descriptorCount = 1;
 	descriptorWrites[8].pBufferInfo = &lightGridDescriptorInfo;
+
+	descriptorWrites[9].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+	descriptorWrites[9].dstSet = descriptorSet;
+	descriptorWrites[9].dstBinding = 1; 
+	descriptorWrites[9].dstArrayElement = 0;
+	descriptorWrites[9].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+	descriptorWrites[9].descriptorCount = 1;
+	descriptorWrites[9].pImageInfo = &depthImageInfo;
 
 	vkUpdateDescriptorSets(device, (uint32_t)descriptorWrites.size(), descriptorWrites.data(), 0, nullptr);
 }

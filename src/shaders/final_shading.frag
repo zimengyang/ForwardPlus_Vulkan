@@ -27,6 +27,9 @@ struct Material {
     //float pad;
 };
 
+
+layout(binding = 1) uniform sampler2D depthTexSampler;
+
 layout(binding = 10) uniform Mat {
     Material material;
 } ubo_mat;
@@ -190,6 +193,11 @@ void main() {
             color = sqrt(pow(color, vec3(1.0 / 2.0)));
             outColor = vec4(color, 1.0);
             break;
+
+        case 8:
+            outColor = vec4(texture(depthTexSampler, fragTexCoord).r * vec3(1,1,1), 1.0);
+            break;
+        
 
         default:
             outColor = vec4(finalColor, 1.0);

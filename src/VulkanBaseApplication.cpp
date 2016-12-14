@@ -1,5 +1,6 @@
 #include "VulkanBaseApplication.h"
 
+
 #define _USE_MATH_DEFINES
 #include <cmath>
 
@@ -31,15 +32,17 @@ void DestroyDebugReportCallbackEXT(VkInstance instance, VkDebugReportCallbackEXT
 // mouse control related
 glm::vec2 cursorPos;
 bool lbuttonDown, rbuttonDown;
-glm::vec2 modelRotAngles; // for model rotation
-
-glm::vec3 cameraPos;
-glm::vec3 lookAtDir;
-glm::vec2 cameraRotAngles; // for camera rotation
+//glm::vec2 modelRotAngles; // for model rotation
+//
+//glm::vec3 cameraPos;
+//glm::vec3 lookAtDir;
+//glm::vec2 cameraRotAngles; // for camera rotation
+Camera camera;
+bool keyboardMapping[26];
 
 // deubg mode int
 int debugMode;
-bool bDrawAxis = false;
+const bool bDrawAxis = false;
 
 // forward plus pixels per tile
 // along one dimension, actural number will be the square of following values 
@@ -47,7 +50,7 @@ const int PIXELS_PER_TILE = 8;
 const int TILES_PER_THREADGROUP = 16;
 
 // number of lights
-const int NUM_OF_LIGHTS = 1500;
+const int NUM_OF_LIGHTS = 100;
 
 namespace std {
 	template<> struct hash<Vertex> {
@@ -118,12 +121,12 @@ void VulkanBaseApplication::initWindow() {
 	window = glfwCreateWindow(WIDTH, HEIGHT, appName.c_str(), nullptr, nullptr);
 
 	// set camera position
-#if CRYTEC_SPONZA
-	cameraPos = glm::vec3(750.0f, 150.0f, 0.0f);
-#else
-	cameraPos = glm::vec3(-6.0f, 1.5f, 0.0f);
-#endif
-	
+//#if CRYTEC_SPONZA
+//	cameraPos = glm::vec3(-750.0f, 200.0f, 0.0f);
+//#else
+//	cameraPos = glm::vec3(-6.0f, 1.5f, 0.0f);
+//#endif
+//	
 
 	// setup callback functions
 	glfwSetCursorPosCallback(window, cursorPosCallback);
@@ -201,14 +204,24 @@ void VulkanBaseApplication::updateUniformBuffer() {
 	//glm::vec4 rotCameraPos = glm::vec4(cameraPos, 1.0f);
 	//rotCameraPos = glm::rotate(glm::mat4(), -cameraRotAngles.x, glm::vec3(0.0f, 0.0f, 1.0f)) * rotCameraPos;
 	//ubo.view = glm::lookAt(glm::vec3(rotCameraPos), glm::vec3(0,0,0), glm::vec3(0.0f, 1.0f, 0.0f));
-	vsParams.view = glm::lookAt(cameraPos, glm::vec3(0, cameraPos.y, 0), glm::vec3(0.0f, 1.0f, 0.0f));
+	//vsParams.view = glm::lookAt(cameraPos, glm::vec3(0, cameraPos.y, 0), glm::vec3(0.0f, 1.0f, 0.0f));
+	if (keyboardMapping[GLFW_KEY_W - GLFW_KEY_A])
+		camera.ProcessKeyboard(Camera_Movement::FORWARD); 
+	if (keyboardMapping[GLFW_KEY_S - GLFW_KEY_A])
+		camera.ProcessKeyboard(Camera_Movement::BACKWARD);
+	if (keyboardMapping[GLFW_KEY_A - GLFW_KEY_A])
+		camera.ProcessKeyboard(Camera_Movement::LEFT); 
+	if (keyboardMapping[GLFW_KEY_D - GLFW_KEY_A])
+		camera.ProcessKeyboard(Camera_Movement::RIGHT);
+	vsParams.view = camera.GetViewMatrix();
 
 	// projection matrix
 	vsParams.proj = glm::perspective(glm::radians(45.0f), swapChainExtent.width / (float)swapChainExtent.height, 1.0f, 100000.0f);
 	vsParams.proj[1][1] *= -1;
 
 	// cameraPos
-	vsParams.cameraPos = glm::vec4(cameraPos, 1.0f);
+	//vsParams.cameraPos = glm::vec4(cameraPos, 1.0f);
+	vsParams.cameraPos = glm::vec4(camera.position, 1.0f);
 
 	// copy data to buffer memory
 	bufferSize = ubo.vsSceneStaging.allocSize;
@@ -326,7 +339,6 @@ void VulkanBaseApplication::initVulkan() {
 	//loadTextureQuad();
 	//createMeshBuffer(meshs.quad);
 
-	
 
 	// create and initialize light infos
 	createLightInfos();
@@ -1451,17 +1463,22 @@ void VulkanBaseApplication::createLightInfos() {
 	std::default_random_engine g((unsigned)time(0));
 	std::uniform_real_distribution<float> u(0.f, 1.f);
 	float scale = 10.0f;
-
+	
+	float dX = 5000.0f;
+	float dY = 300.0f;
+	float dZ = 500.0;
+	float radius = 500.0f;
 	for (int i = 0; i < fpParams.numLights; ++i) {
-		float posX = u(g) * 15.0f - 7.5f;  // -7.5 ~ 7.5
-		float posY = u(g) *  1.5f + 0.0f;  //  0 ~ 1.5
-		float posZ = u(g) * 5.0f - 2.5f;  // -2 ~ 2
-		float intensity = u(g) * 2.5f;
 
-		sboHostData.lights.lights[i].beginPos = glm::vec4(scale * posX, scale * posY, scale * posZ, intensity);
-		sboHostData.lights.lights[i].endPos = scale * sboHostData.lights.lights[i].beginPos;
-		sboHostData.lights.lights[i].endPos.y = scale * (u(g) * 1.0f - 2.0f);  // -2 ~ -1
-		sboHostData.lights.lights[i].endPos.w = scale * (u(g) * 5.0f); // radius
+		float posX = u(g) * dX - dX / 2.0f;  
+		float posY = u(g) * dY;
+		float posZ = u(g) * dZ - dZ / 2.0f;
+		float intensity = u(g) * 0.01f;
+
+		sboHostData.lights.lights[i].beginPos = glm::vec4(posX, posY, posZ, intensity);
+		sboHostData.lights.lights[i].endPos = sboHostData.lights.lights[i].beginPos;
+		sboHostData.lights.lights[i].endPos.y = u(g) - 10.0f; 
+		sboHostData.lights.lights[i].endPos.w = u(g) * radius; // radius
 		sboHostData.lights.lights[i].color = glm::vec4(u(g), u(g), u(g), 0.f);
 	}
 }
@@ -2596,14 +2613,16 @@ void cursorPosCallback(GLFWwindow* window, double xPos, double yPos) {
 		return;
 	}
 	else if (lbuttonDown) {
-		glm::vec2 tmp(xPos, yPos);
-		modelRotAngles += (tmp - cursorPos) * 0.01f;
+		glm::vec2 offset(xPos, yPos);
+		offset = offset - cursorPos;
+		//modelRotAngles += (tmp - cursorPos) * 0.01f;
 
-		cursorPos = tmp;
+		camera.ProcessMouseMovement(offset.x, -offset.y);
+		cursorPos = glm::vec2(xPos, yPos);
 	}
 	else if (rbuttonDown) {
 		glm::vec2 tmp(xPos, yPos);
-		cameraRotAngles += (tmp - cursorPos) * 0.01f;
+		//cameraRotAngles += (tmp - cursorPos) * 0.01f;
 
 		cursorPos = tmp;
 	}
@@ -2643,6 +2662,9 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
 		if (key >= GLFW_KEY_0 && key <= GLFW_KEY_9) {
 			debugMode = key - GLFW_KEY_0;
 		}
+		else if (key >= GLFW_KEY_A && key <= GLFW_KEY_Z) {
+			keyboardMapping[key - GLFW_KEY_A] = true;
+		}
 		else {
 			switch (key)
 			{
@@ -2654,16 +2676,22 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
 			}
 		}
 	}
+	else if(action == GLFW_RELEASE) {
+		if (key >= GLFW_KEY_A && key <= GLFW_KEY_Z) {
+			keyboardMapping[key - GLFW_KEY_A] = false;
+		}
+			
+	}
 
 }
 
 void scrollCallback(GLFWwindow* window, double xoffset, double yoffset) {
-	//std::cout << xoffset << "," << yoffset << std::endl;
-	if (cameraPos.length() > FLT_EPSILON) {
-#if CRYTEC_SPONZA
-		cameraPos -= (float)yoffset * glm::normalize(cameraPos) * 5.0f;
-#else
-		cameraPos -= (float)yoffset * glm::normalize(cameraPos) * 0.05f;
-#endif
-	}
+//	//std::cout << xoffset << "," << yoffset << std::endl;
+//	if (cameraPos.length() > FLT_EPSILON) {
+//#if CRYTEC_SPONZA
+//		cameraPos -= (float)yoffset * glm::normalize(cameraPos) * 5.0f;
+//#else
+//		cameraPos -= (float)yoffset * glm::normalize(cameraPos) * 0.05f;
+//#endif
+//	}
 }

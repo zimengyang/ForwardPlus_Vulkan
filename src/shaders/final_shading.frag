@@ -81,16 +81,19 @@ vec3 applyNormalMap(vec3 geomnor, vec3 normap) {
 void main() {
 
 	ivec2 tileID = ivec2(gl_FragCoord.x, params.screenDimensions.y - gl_FragCoord.y ) / PIXELS_PER_TILE;
-	int index = tileID.y * params.numThreads.x + tileID.x;
+	int tileIndex = tileID.y * params.numThreads.x + tileID.x;
+    
     vec3 finalColor = vec3(0,0,0);
     // lighting for each light
     vec3 lightPos, lightDir, lightColor;
     vec3 viewDir = normalize(cameraPosWorldSpace.xyz - fragPosWorldSpace);
     float dist, lightIntensity, NdotL, lightRadius;
-    
-    vec3 textureColor = ubo_mat.material.diffuse.xyz; 
+
+    float specularPower = ubo_mat.material.specularPower;
+
+    vec3 diffuseColor = ubo_mat.material.diffuse.xyz; 
     if(ubo_mat.material.useTextureMap > 0)
-        textureColor = texture(texColorSampler, fragTexCoord).xyz;
+        diffuseColor = texture(texColorSampler, fragTexCoord).xyz;
 
     vec3 normal = fragNormal;
     vec3 normalMap = vec3(0,0,0);
@@ -99,12 +102,10 @@ void main() {
         //normal = applyNormalMap(fragNormal, normalMap);
     }
 
-    uint lightIndexBegin = index * MAX_NUM_LIGHTS_PER_TILE;
-    uint lightNum = lightGrid[index];
-
-    float specularPower = ubo_mat.material.specularPower;
-
-    // lightGrid[index] = lights need to be considered in tile
+    uint lightIndexBegin = tileIndex * MAX_NUM_LIGHTS_PER_TILE;
+    uint lightNum = lightGrid[tileIndex];
+    
+    // lightGrid[TileIndex] = lights need to be considered in tile
     for(int i = 0; i < lightNum; ++i) {
         int lightIndex = lightIndices[i + lightIndexBegin];
 
@@ -129,15 +130,14 @@ void main() {
         float specAngle = max(dot(halfDir, normal), 0.0);
         float specular = pow(specAngle, specularPower);
 
-        vec3 tmpColor = (0.8 * NdotL + 0.2 * specular * ubo_mat.material.specular.xyz) * lightColor * lightIntensity;
+        vec3 irr = (NdotL * diffuseColor  + specular * ubo_mat.material.specular.xyz) * lightColor * lightIntensity;
 
         float att = max(0.0, lightRadius - dist);
-        finalColor += att * tmpColor;
+        finalColor += att * irr;
 
     }
 
-    finalColor = finalColor * textureColor;
-    outColor = vec4(finalColor, 1.0) + ubo_mat.material.ambient;
+    outColor = vec4(finalColor, 1.0);
 
     switch(params.debugMode){
         case 0: // lighting
@@ -145,7 +145,7 @@ void main() {
             break;
 
         case 1: // texture map
-        outColor = vec4(textureColor, 1.0);
+        outColor = vec4(diffuseColor, 1.0);
             break;
 
         case 2: // normal with normal mapping
@@ -156,17 +156,8 @@ void main() {
         outColor = vec4(normalMap, 1.0);
             break;
 
-        case 4: // distance to camera in view space
-        float dist = 1.0 / distance(fragPosWorldSpace, cameraPosWorldSpace);
-        outColor = vec4(dist * vec3(1,1,1), 1.0);
-            break;
-
-        case 5: // position in world space
-        outColor = vec4(fragPosWorldSpace, 1.0);
-            break;
-
-		case 6: // light heat map
-        float tmp = lightGrid[index];
+		case 4: // light heat map
+        float tmp = lightGrid[tileIndex];
         if(tmp <= 100.f)
         {
             outColor = vec4( 0.f, 0.f, tmp / 100.f, 1.f );
@@ -178,11 +169,11 @@ void main() {
             outColor = vec4( (tmp - 200.f) / 100.f, 1.f, 1.f, 1.f );
         }
 
-        outColor *= vec4(textureColor, 1.0);
+        outColor *= vec4(diffuseColor, 1.0);
 			break;
 
-        case 7:
-        outColor =  ubo_mat.material.diffuse;   
+        case 5:
+        outColor =  ubo_mat.material.ambient;   
             break;
 
         default:

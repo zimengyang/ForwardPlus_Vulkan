@@ -22,7 +22,7 @@
 #include <random>
 
 #include "VDeleter.h"
-
+#include "camera.h"
 
 // debug validation layers
 #ifdef NDEBUG
@@ -629,6 +629,7 @@ private:
 	void endSingleTimeCommands(VkCommandBuffer commandBuffer);
 
 	void resetTitleAndTiming();
+
 };
 
 // callbacks

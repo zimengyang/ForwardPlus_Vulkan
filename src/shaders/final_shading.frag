@@ -103,6 +103,8 @@ void main() {
     if(ubo_mat.material.useSpecMap > 0)
         specularColor = texture(texSpecularSampler, fragTexCoord).xyz;
 
+    vec3 ambientColor = ubo_mat.material.ambient.xyz * diffuseColor;
+
     vec3 viewDir = normalize(cameraPosWorldSpace.xyz - fragPosWorldSpace);
     
     uint lightIndexBegin = tileIndex * MAX_NUM_LIGHTS_PER_TILE;
@@ -133,58 +135,64 @@ void main() {
         float specular = pow(specAngle, specularPower);
 
         vec3 irr = (NdotL * diffuseColor + specular * specularColor) * lightColor * lightIntensity;
-        //vec3 irr = (NdotL * diffuseColor) * lightColor * lightIntensity;
+        //vec3 irr = (specular * specularColor) * lightColor * lightIntensity;
 
         float att = max(0.0, lightRadius - dist);
         finalColor += att * irr;
 
     }
-
-    outColor = vec4(finalColor + ubo_mat.material.ambient.xyz, 1.0);
+    finalColor += ambientColor;
+    //outColor = vec4(finalColor, 1.0);
 
     switch(params.debugMode){
-        case 0: // lighting
-        outColor = vec4(finalColor, 1.0);
+        case 0: // basic lighting
+            outColor = vec4(finalColor, 1.0);
             break;
 
         case 1: // texture map
-        outColor = vec4(diffuseColor, 1.0);
+            outColor = vec4(diffuseColor, 1.0);
             break;
 
         case 2: // original normal 
-        outColor = vec4(fragNormal, 1.0);
+            outColor = vec4(fragNormal, 1.0);
             break;
 
         case 3: // normal map
-        outColor = vec4(normalMap, 1.0);
+            outColor = vec4(normalMap, 1.0);
             break;
 
         case 4: // mapped normal
-        outColor = vec4(normal, 1.0);
+            outColor = vec4(normal, 1.0);
             break;
 
-        case 5: // mapped normal
-        outColor = vec4(specularColor, 1.0);
+        case 5: // specular map
+            outColor = vec4(specularColor, 1.0);
             break;
 
 		case 6: // light heat map
-        float tmp = lightGrid[tileIndex];
-        if(tmp <= 100.f)
-        {
-            outColor = vec4( 0.f, 0.f, tmp / 100.f, 1.f );
-        }
-        else if(tmp > 100.f && tmp <= 200.f) {
-            outColor = vec4( 0.f, (tmp - 100.f) / 100.0f, 1.f, 1.f );
-        }
-        else {
-            outColor = vec4( (tmp - 200.f) / 100.f, 1.f, 1.f, 1.f );
-        }
+            float tmp = lightGrid[tileIndex];
+            if(tmp <= 100.f)
+            {
+                outColor = vec4( 0.f, 0.f, tmp / 100.f, 1.f );
+            }
+            else if(tmp > 100.f && tmp <= 200.f) {
+                outColor = vec4( 0.f, (tmp - 100.f) / 100.0f, 1.f, 1.f );
+            }
+            else {
+                outColor = vec4( (tmp - 200.f) / 100.f, 1.f, 1.f, 1.f );
+            }
 
-        outColor *= vec4(diffuseColor, 1.0);
+            outColor *= vec4(diffuseColor, 1.0);
 			break;
 
+        case 7:
+        vec3 color = finalColor * finalColor;
+        color = sqrt(pow(color, vec3(1.0 / 2.0)));
+        outColor = vec4(color, 1.0);
+            break;
+
         default:
-        outColor = vec4(finalColor, 1.0);
+            outColor = vec4(finalColor, 1.0);
             break;
 
     }

@@ -1465,19 +1465,19 @@ void VulkanBaseApplication::createLightInfos() {
 	float scale = 10.0f;
 	
 	float dX = 5000.0f;
-	float dY = 300.0f;
+	float dY = 500.0f;
 	float dZ = 500.0;
 	float radius = 500.0f;
 	for (int i = 0; i < fpParams.numLights; ++i) {
 
 		float posX = u(g) * dX - dX / 2.0f;  
-		float posY = u(g) * dY;
+		float posY = u(g) * dY + 100.0f;
 		float posZ = u(g) * dZ - dZ / 2.0f;
 		float intensity = u(g) * 0.01f;
 
 		sboHostData.lights.lights[i].beginPos = glm::vec4(posX, posY, posZ, intensity);
 		sboHostData.lights.lights[i].endPos = sboHostData.lights.lights[i].beginPos;
-		sboHostData.lights.lights[i].endPos.y = u(g) - 10.0f; 
+		sboHostData.lights.lights[i].endPos.y = u(g) * (-10.0f); 
 		sboHostData.lights.lights[i].endPos.w = u(g) * radius; // radius
 		sboHostData.lights.lights[i].color = glm::vec4(u(g), u(g), u(g), 0.f);
 	}

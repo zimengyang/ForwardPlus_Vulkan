@@ -113,7 +113,7 @@ void main() {
 
 		vec3 beginPos = currentLight.beginPos.xyz;
 		vec3 endPos = currentLight.endPos.xyz;
-		float t = sin(params.time * lightIndex * .0005f);
+		float t = sin(params.time * lightIndex * .005f);
 
         lightPos = (1 - t) * beginPos + t * endPos;
         lightColor = currentLight.color.xyz;
@@ -137,7 +137,7 @@ void main() {
 
     }
 
-    outColor = vec4(finalColor, 1.0);
+    outColor = vec4(finalColor + ubo_mat.material.ambient.xyz, 1.0);
 
     switch(params.debugMode){
         case 0: // lighting

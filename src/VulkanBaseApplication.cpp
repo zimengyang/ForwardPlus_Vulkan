@@ -212,7 +212,11 @@ void VulkanBaseApplication::updateUniformBuffer() {
 	if (keyboardMapping[GLFW_KEY_A - GLFW_KEY_A])
 		camera.ProcessKeyboard(Camera_Movement::LEFT); 
 	if (keyboardMapping[GLFW_KEY_D - GLFW_KEY_A])
-		camera.ProcessKeyboard(Camera_Movement::RIGHT);
+		camera.ProcessKeyboard(Camera_Movement::RIGHT); 
+	if (keyboardMapping[GLFW_KEY_Q - GLFW_KEY_A])
+		camera.ProcessKeyboard(Camera_Movement::DOWN); 
+	if (keyboardMapping[GLFW_KEY_E - GLFW_KEY_A])
+		camera.ProcessKeyboard(Camera_Movement::UP);
 	vsParams.view = camera.GetViewMatrix();
 
 	// projection matrix

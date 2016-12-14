@@ -96,7 +96,7 @@ void main() {
     vec3 normalMap = vec3(0,0,0);
     if(ubo_mat.material.useNormMap > 0) {
         normalMap = texture(texNormalSampler, fragTexCoord).xyz;
-        //normal = applyNormalMap(TBN, normalMap);
+        normal = applyNormalMap(TBN, normalMap);
     }
 
     vec3 specularColor = vec3(0,0,0);

@@ -18,11 +18,12 @@ struct Frustum {
 struct Material {
     vec4 ambient; // Ka
     vec4 diffuse; // Kd
-    vec4 specular; // Ks
+    //vec4 specular; // Ks
 
     float specularPower;
     int useTextureMap;
     int useNormMap;
+    int useSpecMap;
     //float pad;
 };
 
@@ -32,6 +33,7 @@ layout(binding = 10) uniform Mat {
 
 layout(binding = 11) uniform sampler2D texColorSampler;
 layout(binding = 12) uniform sampler2D texNormalSampler;
+layout(binding = 13) uniform sampler2D texSpecularSampler;
 
 layout(binding = 3) buffer Lights {
     Light lights[];
@@ -65,16 +67,14 @@ layout(location = 2) in vec3 fragNormal;
 layout(location = 3) in vec3 fragPosWorldSpace;
 layout(location = 4) in vec3 fragPosViewSpace;
 layout(location = 5) in vec3 cameraPosWorldSpace;
+layout(location = 6) in mat3 TBN;
 
 layout(location = 0) out vec4 outColor;
 
 // apply normal map
-vec3 applyNormalMap(vec3 geomnor, vec3 normap) {
+vec3 applyNormalMap(mat3 TBN, vec3 normap) {
     normap = normap * 2.0 - 1.0;
-    vec3 up = normalize(vec3(0.00001, 1, 0.00001));
-    vec3 surftan = normalize(cross(geomnor, up));
-    vec3 surfbinor = cross(geomnor, surftan);
-    vec3 mappedNor = normap.y * surftan + normap.x * surfbinor + normap.z * geomnor;
+    vec3 mappedNor = TBN * normap;
     return normalize(mappedNor);
 }
 
@@ -84,11 +84,8 @@ void main() {
 	int tileIndex = tileID.y * params.numThreads.x + tileID.x;
     
     vec3 finalColor = vec3(0,0,0);
-    // lighting for each light
-    vec3 lightPos, lightDir, lightColor;
-    vec3 viewDir = normalize(cameraPosWorldSpace.xyz - fragPosWorldSpace);
-    float dist, lightIntensity, NdotL, lightRadius;
 
+    // read material properties
     float specularPower = ubo_mat.material.specularPower;
 
     vec3 diffuseColor = ubo_mat.material.diffuse.xyz; 
@@ -99,12 +96,17 @@ void main() {
     vec3 normalMap = vec3(0,0,0);
     if(ubo_mat.material.useNormMap > 0) {
         normalMap = texture(texNormalSampler, fragTexCoord).xyz;
-        //normal = applyNormalMap(fragNormal, normalMap);
+        //normal = applyNormalMap(TBN, normalMap);
     }
 
-    uint lightIndexBegin = tileIndex * MAX_NUM_LIGHTS_PER_TILE;
-    uint lightNum = lightGrid[tileIndex];
+    vec3 specularColor = vec3(0,0,0);
+    if(ubo_mat.material.useSpecMap > 0)
+        specularColor = texture(texSpecularSampler, fragTexCoord).xyz;
+
+    vec3 viewDir = normalize(cameraPosWorldSpace.xyz - fragPosWorldSpace);
     
+    uint lightIndexBegin = tileIndex * MAX_NUM_LIGHTS_PER_TILE;
+    uint lightNum = lightGrid[tileIndex];    
     // lightGrid[TileIndex] = lights need to be considered in tile
     for(int i = 0; i < lightNum; ++i) {
         int lightIndex = lightIndices[i + lightIndexBegin];
@@ -115,22 +117,23 @@ void main() {
 		vec3 endPos = currentLight.endPos.xyz;
 		float t = sin(params.time * lightIndex * .005f);
 
-        lightPos = (1 - t) * beginPos + t * endPos;
-        lightColor = currentLight.color.xyz;
-        lightDir = lightPos - fragPosWorldSpace;
-        lightIntensity = currentLight.beginPos.w;
-        lightRadius = currentLight.endPos.w;
+        vec3 lightPos = (1 - t) * beginPos + t * endPos;
+        vec3 lightColor = currentLight.color.xyz;
+        vec3 lightDir = lightPos - fragPosWorldSpace;
+        float lightIntensity = currentLight.beginPos.w;
+        float lightRadius = currentLight.endPos.w;
 
-        dist = length(lightDir);
+        float dist = length(lightDir);
         lightDir = lightDir/dist;
 
-        NdotL = max(0, dot(normal, lightDir));
+        float NdotL = max(0, dot(normal, lightDir));
 
         vec3 halfDir = normalize(lightDir + viewDir);
         float specAngle = max(dot(halfDir, normal), 0.0);
         float specular = pow(specAngle, specularPower);
 
-        vec3 irr = (NdotL * diffuseColor  + specular * ubo_mat.material.specular.xyz) * lightColor * lightIntensity;
+        vec3 irr = (NdotL * diffuseColor + specular * specularColor) * lightColor * lightIntensity;
+        //vec3 irr = (NdotL * diffuseColor) * lightColor * lightIntensity;
 
         float att = max(0.0, lightRadius - dist);
         finalColor += att * irr;
@@ -148,15 +151,23 @@ void main() {
         outColor = vec4(diffuseColor, 1.0);
             break;
 
-        case 2: // normal with normal mapping
-        outColor = vec4(normal, 1.0);
+        case 2: // original normal 
+        outColor = vec4(fragNormal, 1.0);
             break;
 
         case 3: // normal map
         outColor = vec4(normalMap, 1.0);
             break;
 
-		case 4: // light heat map
+        case 4: // mapped normal
+        outColor = vec4(normal, 1.0);
+            break;
+
+        case 5: // mapped normal
+        outColor = vec4(specularColor, 1.0);
+            break;
+
+		case 6: // light heat map
         float tmp = lightGrid[tileIndex];
         if(tmp <= 100.f)
         {
@@ -171,10 +182,6 @@ void main() {
 
         outColor *= vec4(diffuseColor, 1.0);
 			break;
-
-        case 5:
-        outColor =  ubo_mat.material.ambient;   
-            break;
 
         default:
         outColor = vec4(finalColor, 1.0);

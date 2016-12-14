@@ -269,12 +269,12 @@ private:
 	struct Material {
 		glm::vec4 ambient; // Ka
 		glm::vec4 diffuse; // Kd
-		glm::vec4 specular; // Ks
+		//glm::vec4 specular; // Ks
 
 		float specularPower;
 		int useTextureMap;
 		int useNormMap;
-		float pad;
+		int useSpecMap;
 		//---------------------16 bytes
 	};
 
@@ -298,7 +298,7 @@ private:
 		std::vector<VulkanBuffer> materialBuffers;
 		std::vector<Texture> textureMaps;
 		std::vector<Texture> normalMaps;
-
+		std::vector<Texture> specMaps;
 
 		void cleanup(VkDevice device) {
 			vkDestroyBuffer(device, vertices.buffer, nullptr);
@@ -319,6 +319,9 @@ private:
 				}
 				if (materials[i].useTextureMap > 0) {
 					textureMaps[i].cleanup(device);
+				}
+				if (materials[i].useSpecMap > 0) {
+					specMaps[i].cleanup(device);
 				}
 			}
 
@@ -566,7 +569,7 @@ private:
 
 	void createDescriptorSet();
 
-	void createDescriptorSetsForMeshGroup(VkDescriptorSet & descriptorSet, VulkanBuffer & buffer, int useTex, Texture & texMap, int useNorm, Texture & norMap);
+	void createDescriptorSetsForMeshGroup(VkDescriptorSet & descriptorSet, VulkanBuffer & buffer, int useTex, Texture & texMap, int useNorm, Texture & norMap, int useSpec, Texture & specMap);
 
 	void createTextureImage(const std::string& texFilename, VkImage & texImage, VkDeviceMemory & texImageMemory);
 

@@ -1639,6 +1639,14 @@ void VulkanBaseApplication::createDescriptorSetLayout() {
 	samplerLayoutBinding2.pImmutableSamplers = nullptr;
 	samplerLayoutBinding2.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
 
+	// fs texture sampler
+	VkDescriptorSetLayoutBinding samplerLayoutBinding3 = {};
+	samplerLayoutBinding3.binding = 13;
+	samplerLayoutBinding3.descriptorCount = 1;
+	samplerLayoutBinding3.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+	samplerLayoutBinding3.pImmutableSamplers = nullptr;
+	samplerLayoutBinding3.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+
 	// fs cs lights storage
 	VkDescriptorSetLayoutBinding lightsStorageLayoutBinding = {};
 	lightsStorageLayoutBinding.binding = 3;
@@ -1687,9 +1695,9 @@ void VulkanBaseApplication::createDescriptorSetLayout() {
 	lightGridBinding.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
 	lightGridBinding.pImmutableSamplers = nullptr;
 
-	std::array<VkDescriptorSetLayoutBinding, 10> bindings = {
+	std::array<VkDescriptorSetLayoutBinding, 11> bindings = {
 		uboLayoutBinding, 
-		fsMaterialUniformBinding, samplerLayoutBinding, samplerLayoutBinding2,
+		fsMaterialUniformBinding, samplerLayoutBinding, samplerLayoutBinding2, samplerLayoutBinding3,
 		lightsStorageLayoutBinding, csParamsLayoutBinding,
 		frustumStorageLayoutBinding, fsParamsLayoutBinding,
 		lightIndexBinding, lightGridBinding
@@ -1712,7 +1720,7 @@ void VulkanBaseApplication::createDescriptorPool() {
 	poolSizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
 	poolSizes[0].descriptorCount = 4;
 	poolSizes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-	poolSizes[1].descriptorCount = 2;
+	poolSizes[1].descriptorCount = 3;
 	poolSizes[2].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
 	poolSizes[2].descriptorCount = 4;
 
@@ -1775,7 +1783,7 @@ void VulkanBaseApplication::createDescriptorSet() {
 	lightGridDescriptorInfo.offset = 0;
 	lightGridDescriptorInfo.range = sbo.lightGrid.allocSize;
 
-	std::array<VkDescriptorImageInfo, 2> imageInfo = {};
+	std::array<VkDescriptorImageInfo, 3> imageInfo = {};
 	imageInfo[0].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 	imageInfo[0].imageView = textures[0].imageView; //textureImageViews[0];
 	imageInfo[0].sampler = textures[0].sampler; // textureSamplers[0];
@@ -1783,6 +1791,10 @@ void VulkanBaseApplication::createDescriptorSet() {
 	imageInfo[1].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 	imageInfo[1].imageView = textures[1].imageView; // textureImageViews[1];
 	imageInfo[1].sampler = textures[1].sampler; // textureSamplers[1];
+
+	imageInfo[2].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+	imageInfo[2].imageView = textures[1].imageView; // textureImageViews[1];
+	imageInfo[2].sampler = textures[1].sampler; // textureSamplers[1];
 
 	std::array<VkWriteDescriptorSet, 8> descriptorWrites = {};
 
@@ -2292,11 +2304,12 @@ void VulkanBaseApplication::loadModel(MeshGroup & meshGroup, const std::string &
 	meshMaterials.resize(materials.size());
 	meshGroup.textureMaps.resize(materials.size());
 	meshGroup.normalMaps.resize(materials.size());
+	meshGroup.specMaps.resize(materials.size());
 
 	for (int i = 0; i < materials.size(); ++i) {
 		meshMaterials[i].ambient = glm::vec4(materials[i].ambient[0], materials[i].ambient[1], materials[i].ambient[2], 1.0f);
 		meshMaterials[i].diffuse = glm::vec4(materials[i].diffuse[0], materials[i].diffuse[1], materials[i].diffuse[2], 1.0f);
-		meshMaterials[i].specular = glm::vec4(materials[i].specular[0], materials[i].specular[1], materials[i].specular[2], 1.0f);
+		//meshMaterials[i].specular = glm::vec4(materials[i].specular[0], materials[i].specular[1], materials[i].specular[2], 1.0f);
 		meshMaterials[i].specularPower = materials[i].shininess;
 
 		std::string texMapName = materials[i].diffuse_texname;
@@ -2317,6 +2330,16 @@ void VulkanBaseApplication::loadModel(MeshGroup & meshGroup, const std::string &
 			std::string normTexPath = MODEL_BASE_DIR + normTexName;
 			prepareTexture(normTexPath, meshGroup.normalMaps[i]);
 			meshMaterials[i].useNormMap = 1;
+		}
+
+		std::string specTexName = materials[i].specular_texname;
+		if (specTexName.empty()) {
+			meshMaterials[i].useSpecMap = -1;
+		}
+		else {
+			std::string specTexPath = MODEL_BASE_DIR + specTexName;
+			prepareTexture(specTexPath, meshGroup.specMaps[i]);
+			meshMaterials[i].useSpecMap = 1;
 		}
 		
 	}
@@ -2383,11 +2406,12 @@ void VulkanBaseApplication::loadModel(MeshGroup & meshGroup, const std::string &
 		createDescriptorSetsForMeshGroup(
 			meshGroup.descriptorSets[i], meshGroup.materialBuffers[i], 
 			meshGroup.materials[i].useTextureMap, meshGroup.textureMaps[i], 
-			meshGroup.materials[i].useNormMap, meshGroup.normalMaps[i]);
+			meshGroup.materials[i].useNormMap, meshGroup.normalMaps[i],
+			meshGroup.materials[i].useSpecMap, meshGroup.specMaps[i] );
 	}
 }
 
-void VulkanBaseApplication::createDescriptorSetsForMeshGroup(VkDescriptorSet & descriptorSet, VulkanBuffer & buffer, int useTex, Texture & texMap, int useNorm, Texture & norMap) {
+void VulkanBaseApplication::createDescriptorSetsForMeshGroup(VkDescriptorSet & descriptorSet, VulkanBuffer & buffer, int useTex, Texture & texMap, int useNorm, Texture & norMap, int useSpec, Texture & specMap) {
 	VkDescriptorSetLayout layouts[] = { descriptorSetLayout };
 	VkDescriptorSetAllocateInfo allocInfo = {};
 	allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
@@ -2439,7 +2463,7 @@ void VulkanBaseApplication::createDescriptorSetsForMeshGroup(VkDescriptorSet & d
 	lightGridDescriptorInfo.offset = 0;
 	lightGridDescriptorInfo.range = sbo.lightGrid.allocSize;
 
-	std::array<VkDescriptorImageInfo, 2> imageInfo = {};
+	std::array<VkDescriptorImageInfo, 3> imageInfo = {};
 	imageInfo[0].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 	imageInfo[0].imageView = useTex > 0 ? texMap.imageView : textures[0].imageView; // texture map;
 	imageInfo[0].sampler = useTex > 0 ? texMap.sampler : textures[0].sampler; // texture map;
@@ -2447,6 +2471,10 @@ void VulkanBaseApplication::createDescriptorSetsForMeshGroup(VkDescriptorSet & d
 	imageInfo[1].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 	imageInfo[1].imageView = useNorm > 0? norMap.imageView : textures[1].imageView; //  normal map;
 	imageInfo[1].sampler = useNorm > 0? norMap.sampler : textures[1].sampler; // normal map;
+	
+	imageInfo[2].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+	imageInfo[2].imageView = useSpec > 0 ? specMap.imageView : textures[1].imageView; //  normal map;
+	imageInfo[2].sampler = useSpec > 0 ? specMap.sampler : textures[1].sampler; // normal map;
 
 	std::array<VkWriteDescriptorSet, 9> descriptorWrites = {};
 

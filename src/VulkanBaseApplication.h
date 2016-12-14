@@ -213,6 +213,7 @@ private:
 		VkPipeline quad; // quad pipeline
 		VkPipeline computeLightList; // compute light list pipeline
 		VkPipeline computeFrustumGrid; // compute Frustum Grid pipeline
+		VkPipeline depth;
 
 		void cleanup(VkDevice device) {
 			vkDestroyPipeline(device, graphics, nullptr);
@@ -220,6 +221,7 @@ private:
 			vkDestroyPipeline(device, quad, nullptr);
 			vkDestroyPipeline(device, computeLightList, nullptr);
 			vkDestroyPipeline(device, computeFrustumGrid, nullptr);
+			vkDestroyPipeline(device, depth, nullptr);
 		}
 
 	} pipelines;
@@ -289,7 +291,7 @@ private:
 			vkFreeMemory(device, indices.mem, nullptr);
 		}
 	};
-	
+
 	struct MeshGroup {
 		VertexBuffer vertices;
 		std::vector<IndexBuffer> indexGroups;
@@ -303,7 +305,7 @@ private:
 		void cleanup(VkDevice device) {
 			vkDestroyBuffer(device, vertices.buffer, nullptr);
 			vkFreeMemory(device, vertices.mem, nullptr);
-			
+
 			for (auto & indexBuffer : indexGroups) {
 				vkDestroyBuffer(device, indexBuffer.buffer, nullptr);
 				vkFreeMemory(device, indexBuffer.mem, nullptr);
@@ -607,7 +609,7 @@ private:
 	void createDepthResources();
 
 	void loadModel(std::vector<Vertex> & vertices, std::vector<uint32_t> & indices, const std::string & modelFilename, const std::string & modelBaseDir, float scale = 1.0f);
-	
+
 	void loadModel(MeshGroup & meshGroup, const std::string & modelFilename, const std::string & modelBaseDir, float scale = 1.0f);
 
 	// load axis info

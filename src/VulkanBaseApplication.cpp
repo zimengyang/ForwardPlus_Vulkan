@@ -288,10 +288,24 @@ void VulkanBaseApplication::drawFrame() {
 	uint32_t imageIndex;
 	vkAcquireNextImageKHR(device, swapChain, std::numeric_limits<uint64_t>::max(), imageAvailableSemaphore, VK_NULL_HANDLE, &imageIndex);
 
+	VkSubmitInfo depthSubmitInfo = {};
+	depthSubmitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+	depthSubmitInfo.pNext = nullptr;
+	depthSubmitInfo.commandBufferCount = 1;
+	depthSubmitInfo.pCommandBuffers = &depthPrepass.commandBuffer;
+	depthSubmitInfo.signalSemaphoreCount = 1;
+	depthSubmitInfo.pSignalSemaphores = &depthPrepass.semaphore;
+
+	if (vkQueueSubmit(graphicsQueue, 1, &depthSubmitInfo, VK_NULL_HANDLE) != VK_SUCCESS) {
+		throw std::runtime_error("failed to submit depth command buffer!");
+	}
+
 	// submit compute command buffer
 	VkSubmitInfo computeSubmitInfo = {};
 	computeSubmitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 	computeSubmitInfo.pNext = nullptr;
+	computeSubmitInfo.waitSemaphoreCount = 1;
+	computeSubmitInfo.pWaitSemaphores = &depthPrepass.semaphore;
 	computeSubmitInfo.commandBufferCount = 1;
 	computeSubmitInfo.pCommandBuffers = &cmdBuffers.compute;
 
@@ -772,6 +786,14 @@ void VulkanBaseApplication::createGraphicsPipeline()
 	if (vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &pipelines.axis) != VK_SUCCESS) {
 		throw std::runtime_error("failed to create graphics pipeline!");
 	}
+
+	inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+	pipelineInfo.stageCount = 1;
+	shaderStages[0] = shaderStage.vs;
+	if (vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &pipelines.depth)
+			!= VK_SUCCESS) {
+		throw std::runtime_error("failed to create depth pipeline!");
+	}
 }
 
 void VulkanBaseApplication::createComputePipeline() {
@@ -1132,7 +1154,25 @@ void VulkanBaseApplication::createDepthCommandBuffer() {
 
 	vkBeginCommandBuffer(depthPrepass.commandBuffer, &cbBeginInfo);
 
-	// todo: bind pipeline
+	vkCmdBeginRenderPass(depthPrepass.commandBuffer, &rpBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
+
+	vkCmdBindPipeline(depthPrepass.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines.depth);
+
+	vkCmdBindDescriptorSets(depthPrepass.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSet, 0, NULL);
+
+	// binding the vertex buffer
+	VkBuffer vertexBuffers[] = { meshs.meshGroupScene.vertices.buffer };
+	VkDeviceSize offsets[] = { 0 };
+	vkCmdBindVertexBuffers(depthPrepass.commandBuffer, 0, 1, vertexBuffers, offsets);
+
+	for (int groupId = 0; groupId < meshs.meshGroupScene.indexGroups.size(); ++groupId) {
+		vkCmdBindIndexBuffer(depthPrepass.commandBuffer, meshs.meshGroupScene.indexGroups[groupId].buffer, 0, VK_INDEX_TYPE_UINT32);
+		vkCmdDrawIndexed(depthPrepass.commandBuffer, (uint32_t)meshs.meshGroupScene.indexGroups[groupId].indicesData.size(), 1, 0, 0, 0);
+	}
+
+	vkCmdEndRenderPass(depthPrepass.commandBuffer);
+
+	vkEndCommandBuffer(depthPrepass.commandBuffer);
 }
 
 void VulkanBaseApplication::createRenderPass() {
@@ -1311,7 +1351,7 @@ void VulkanBaseApplication::createDepthFramebuffer() {
 	imageViewCreateInfo.subresourceRange.baseArrayLayer = 0;
 	imageViewCreateInfo.subresourceRange.layerCount = 1;
 
-	if ( vkCreateImageView(device, &imageViewCreateInfo, nullptr, &depthPrepass.depth.view)
+	if (vkCreateImageView(device, &imageViewCreateInfo, nullptr, &depthPrepass.depth.view)
 			!= VK_SUCCESS) {
 		throw std::runtime_error("failed to bind depth framebuffer imageview!");
 	}
@@ -1845,6 +1885,14 @@ void VulkanBaseApplication::createDescriptorSetLayout() {
 	uboLayoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_COMPUTE_BIT;
 	uboLayoutBinding.pImmutableSamplers = nullptr; // Optional
 
+	// depth prepass sampler
+	VkDescriptorSetLayoutBinding depthLayoutBinding = {};
+	depthLayoutBinding.binding = 1;
+	depthLayoutBinding.descriptorCount = 1;
+	depthLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+	depthLayoutBinding.pImmutableSamplers = nullptr;
+	depthLayoutBinding.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+
 	// fs material uniform buffer binding
 	VkDescriptorSetLayoutBinding fsMaterialUniformBinding = {};
 	fsMaterialUniformBinding.binding = 10;
@@ -1924,8 +1972,8 @@ void VulkanBaseApplication::createDescriptorSetLayout() {
 	lightGridBinding.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
 	lightGridBinding.pImmutableSamplers = nullptr;
 
-	std::array<VkDescriptorSetLayoutBinding, 11> bindings = {
-		uboLayoutBinding,
+	std::array<VkDescriptorSetLayoutBinding, 12> bindings = {
+		uboLayoutBinding, depthLayoutBinding,
 		fsMaterialUniformBinding, samplerLayoutBinding, samplerLayoutBinding2, samplerLayoutBinding3,
 		lightsStorageLayoutBinding, csParamsLayoutBinding,
 		frustumStorageLayoutBinding, fsParamsLayoutBinding,
@@ -1949,7 +1997,7 @@ void VulkanBaseApplication::createDescriptorPool() {
 	poolSizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
 	poolSizes[0].descriptorCount = 4;
 	poolSizes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-	poolSizes[1].descriptorCount = 3;
+	poolSizes[1].descriptorCount = 4;
 	poolSizes[2].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
 	poolSizes[2].descriptorCount = 4;
 
@@ -2012,7 +2060,7 @@ void VulkanBaseApplication::createDescriptorSet() {
 	lightGridDescriptorInfo.offset = 0;
 	lightGridDescriptorInfo.range = sbo.lightGrid.allocSize;
 
-	std::array<VkDescriptorImageInfo, 3> imageInfo = {};
+	std::array<VkDescriptorImageInfo, 4> imageInfo = {};
 	imageInfo[0].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 	imageInfo[0].imageView = textures[0].imageView; //textureImageViews[0];
 	imageInfo[0].sampler = textures[0].sampler; // textureSamplers[0];
@@ -2025,7 +2073,13 @@ void VulkanBaseApplication::createDescriptorSet() {
 	imageInfo[2].imageView = textures[1].imageView; // textureImageViews[1];
 	imageInfo[2].sampler = textures[1].sampler; // textureSamplers[1];
 
-	std::array<VkWriteDescriptorSet, 8> descriptorWrites = {};
+	VkDescriptorImageInfo depthImageInfo = {};
+
+	depthImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+	depthImageInfo.imageView = depthPrepass.depth.view;
+	depthImageInfo.sampler = depthPrepass.depthSampler;
+
+	std::array<VkWriteDescriptorSet, 9> descriptorWrites = {};
 
 	descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
 	descriptorWrites[0].dstSet = descriptorSet;
@@ -2098,6 +2152,14 @@ void VulkanBaseApplication::createDescriptorSet() {
 	descriptorWrites[2].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
 	descriptorWrites[2].descriptorCount = 1;
 	descriptorWrites[2].pBufferInfo = &lightGridDescriptorInfo;
+
+	descriptorWrites[8].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+	descriptorWrites[8].dstSet = descriptorSet;
+	descriptorWrites[8].dstBinding = 1; // image samplers starts from binding = 10
+	descriptorWrites[8].dstArrayElement = 0;
+	descriptorWrites[8].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+	descriptorWrites[8].descriptorCount = 1;
+	descriptorWrites[8].pImageInfo = &depthImageInfo;
 
 	vkUpdateDescriptorSets(device, (uint32_t)descriptorWrites.size(), descriptorWrites.data(), 0, nullptr);
 }

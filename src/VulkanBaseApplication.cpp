@@ -118,7 +118,12 @@ void VulkanBaseApplication::initWindow() {
 	window = glfwCreateWindow(WIDTH, HEIGHT, appName.c_str(), nullptr, nullptr);
 
 	// set camera position
+#if CRYTEC_SPONZA
+	cameraPos = glm::vec3(750.0f, 150.0f, 0.0f);
+#else
 	cameraPos = glm::vec3(-6.0f, 1.5f, 0.0f);
+#endif
+	
 
 	// setup callback functions
 	glfwSetCursorPosCallback(window, cursorPosCallback);
@@ -188,18 +193,18 @@ void VulkanBaseApplication::updateUniformBuffer() {
 	//ubo.model = glm::rotate(glm::mat4(), modelRotAngles.x , glm::vec3(0.0f, 0.0f, 1.0f)) * glm::rotate(glm::mat4(), modelRotAngles.y, glm::vec3(0.0f, 1.0f, 0.0f));
 #if SIBENIK
 	vsParams.model = glm::translate(glm::mat4(), glm::vec3(0, 4, 0));
-#elif SPONZA
-	vsParams.model = glm::translate(glm::mat4(), glm::vec3(0, 0, 0));
+#else
+	vsParams.model = glm::translate(glm::mat4(), glm::vec3(0, 0, 0)); 	
 #endif
 
 	// update camera rotations
 	//glm::vec4 rotCameraPos = glm::vec4(cameraPos, 1.0f);
 	//rotCameraPos = glm::rotate(glm::mat4(), -cameraRotAngles.x, glm::vec3(0.0f, 0.0f, 1.0f)) * rotCameraPos;
 	//ubo.view = glm::lookAt(glm::vec3(rotCameraPos), glm::vec3(0,0,0), glm::vec3(0.0f, 1.0f, 0.0f));
-	vsParams.view = glm::lookAt(cameraPos, glm::vec3(0, 0, 0), glm::vec3(0.0f, 1.0f, 0.0f));
+	vsParams.view = glm::lookAt(cameraPos, glm::vec3(0, cameraPos.y, 0), glm::vec3(0.0f, 1.0f, 0.0f));
 
 	// projection matrix
-	vsParams.proj = glm::perspective(glm::radians(45.0f), swapChainExtent.width / (float)swapChainExtent.height, 0.01f, 100.0f);
+	vsParams.proj = glm::perspective(glm::radians(45.0f), swapChainExtent.width / (float)swapChainExtent.height, 1.0f, 100000.0f);
 	vsParams.proj[1][1] *= -1;
 
 	// cameraPos
@@ -330,7 +335,12 @@ void VulkanBaseApplication::initVulkan() {
 	initStorageBuffer();
 	createDescriptorPool();
 	createDescriptorSet();
+#if CRYTEC_SPONZA
+	loadModel(meshs.meshGroupScene, MODEL_PATH, MODEL_BASE_DIR);
+#else
 	loadModel(meshs.meshGroupScene, MODEL_PATH, MODEL_BASE_DIR, 0.4f);
+#endif
+	
 
 	createCommandBuffers();
 	createComputeCommandBuffer();
@@ -1440,18 +1450,18 @@ void VulkanBaseApplication::copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, V
 void VulkanBaseApplication::createLightInfos() {
 	std::default_random_engine g((unsigned)time(0));
 	std::uniform_real_distribution<float> u(0.f, 1.f);
-	float scale = 3.0f;
+	float scale = 10.0f;
 
 	for (int i = 0; i < fpParams.numLights; ++i) {
 		float posX = u(g) * 15.0f - 7.5f;  // -7.5 ~ 7.5
 		float posY = u(g) *  1.5f + 0.0f;  //  0 ~ 1.5
 		float posZ = u(g) * 5.0f - 2.5f;  // -2 ~ 2
-		float intensity = u(g) * 1.5f;
+		float intensity = u(g) * 2.5f;
 
-		sboHostData.lights.lights[i].beginPos = glm::vec4(posX, posY, posZ, intensity);
-		sboHostData.lights.lights[i].endPos = sboHostData.lights.lights[i].beginPos;
-		sboHostData.lights.lights[i].endPos.y = u(g) * 1.0f - 2.0f;  // -2 ~ -1
-		sboHostData.lights.lights[i].endPos.w = u(g) * 1.7f; // radius
+		sboHostData.lights.lights[i].beginPos = glm::vec4(scale * posX, scale * posY, scale * posZ, intensity);
+		sboHostData.lights.lights[i].endPos = scale * sboHostData.lights.lights[i].beginPos;
+		sboHostData.lights.lights[i].endPos.y = scale * (u(g) * 1.0f - 2.0f);  // -2 ~ -1
+		sboHostData.lights.lights[i].endPos.w = scale * (u(g) * 5.0f); // radius
 		sboHostData.lights.lights[i].color = glm::vec4(u(g), u(g), u(g), 0.f);
 	}
 }
@@ -1693,7 +1703,7 @@ void VulkanBaseApplication::createDescriptorPool() {
 	poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
 	poolInfo.poolSizeCount = (uint32_t)poolSizes.size();
 	poolInfo.pPoolSizes = poolSizes.data();
-	poolInfo.maxSets = 50; // number of descriptor sets
+	poolInfo.maxSets = 100; // number of descriptor sets
 
 	if (vkCreateDescriptorPool(device, &poolInfo, nullptr, descriptorPool.replace()) != VK_SUCCESS) {
 		throw std::runtime_error("failed to create descriptor pool!");
@@ -2199,6 +2209,7 @@ void VulkanBaseApplication::loadModel(MeshGroup & meshGroup, const std::string &
 	std::vector<uint32_t> indices;
 
 	std::unordered_map<Vertex, int> uniqueVertices = {};
+	bool hasNormals = false;
 
 	for (const auto& shape : shapes) {
 		//for (const auto& index : shape.mesh.indices) {
@@ -2218,11 +2229,21 @@ void VulkanBaseApplication::loadModel(MeshGroup & meshGroup, const std::string &
 			};
 
 			vertex.color = { 1.0f, 1.0f, 1.0f };
+			
+			if (!attrib.normals.empty()) {
+				vertex.normal = {
+					attrib.normals[3 * index.normal_index + 0],
+					attrib.normals[3 * index.normal_index + 1],
+					attrib.normals[3 * index.normal_index + 2]
+				};
+				hasNormals = true;
+			}
 
 			if (uniqueVertices.count(vertex) == 0) {
 				uniqueVertices[vertex] = (uint32_t)vertices.size();
 				vertices.push_back(vertex);
 			}
+
 
 			indices.push_back(uniqueVertices[vertex]);
 		}
@@ -2230,20 +2251,22 @@ void VulkanBaseApplication::loadModel(MeshGroup & meshGroup, const std::string &
 
 
 	// compute triangle normal here
-	for (int i = 0; i < indices.size(); i += 3) {
-		glm::vec3 P1 = vertices[indices[i + 0]].pos;
-		glm::vec3 P2 = vertices[indices[i + 1]].pos;
-		glm::vec3 P3 = vertices[indices[i + 2]].pos;
+	if (!hasNormals) {
+		for (int i = 0; i < indices.size(); i += 3) {
+			glm::vec3 P1 = vertices[indices[i + 0]].pos;
+			glm::vec3 P2 = vertices[indices[i + 1]].pos;
+			glm::vec3 P3 = vertices[indices[i + 2]].pos;
 
-		glm::vec3 V = P2 - P1;
-		glm::vec3 W = P3 - P1;
+			glm::vec3 V = P2 - P1;
+			glm::vec3 W = P3 - P1;
 
-		glm::vec3 N = glm::cross(V, W);
+			glm::vec3 N = glm::cross(V, W);
 
-		N = glm::normalize(N);
-		vertices[indices[i + 0]].normal = N;
-		vertices[indices[i + 1]].normal = N;
-		vertices[indices[i + 2]].normal = N;
+			N = glm::normalize(N);
+			vertices[indices[i + 0]].normal = N;
+			vertices[indices[i + 1]].normal = N;
+			vertices[indices[i + 2]].normal = N;
+		}
 	}
 
 	
@@ -2285,13 +2308,15 @@ void VulkanBaseApplication::loadModel(MeshGroup & meshGroup, const std::string &
 	std::vector<IndexBuffer> & indexGroups = meshGroup.indexGroups;
 	indexGroups.resize(materials.size());
 
+	int indexCount = 0;
 	for (const auto& shape : shapes) {
 		for (int i = 0; i < shape.mesh.material_ids.size(); ++i) {
 			
 			int materialId = shape.mesh.material_ids[i];
-			indexGroups[materialId].indicesData.push_back(indices[i * 3 + 0]);
-			indexGroups[materialId].indicesData.push_back(indices[i * 3 + 1]);
-			indexGroups[materialId].indicesData.push_back(indices[i * 3 + 2]);
+			indexGroups[materialId].indicesData.push_back(indices[indexCount * 3 + 0]);
+			indexGroups[materialId].indicesData.push_back(indices[indexCount * 3 + 1]);
+			indexGroups[materialId].indicesData.push_back(indices[indexCount * 3 + 2]);
+			indexCount++;
 		}
 	}
 
@@ -2635,6 +2660,10 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
 void scrollCallback(GLFWwindow* window, double xoffset, double yoffset) {
 	//std::cout << xoffset << "," << yoffset << std::endl;
 	if (cameraPos.length() > FLT_EPSILON) {
+#if CRYTEC_SPONZA
+		cameraPos -= (float)yoffset * glm::normalize(cameraPos) * 5.0f;
+#else
 		cameraPos -= (float)yoffset * glm::normalize(cameraPos) * 0.05f;
+#endif
 	}
 }

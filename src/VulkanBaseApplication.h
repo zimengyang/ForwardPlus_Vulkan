@@ -40,23 +40,23 @@ void DestroyDebugReportCallbackEXT(VkInstance instance, VkDebugReportCallbackEXT
 extern const int WIDTH;
 extern const int HEIGHT;
 
-#define SIBENIK 1
+#define SIBENIK 0
 #define SPONZA 0
+#define CRYTEC_SPONZA 1
 
 #if SIBENIK
 	const std::string MODEL_BASE_DIR = "../src/models/sibenik/";
 	const std::string MODEL_PATH = MODEL_BASE_DIR + "sibenik.obj";
-
-	const std::string TEXTURE_COLOR_PATH = MODEL_BASE_DIR + "kamen.png";
-	const std::string TEXTURE_NORM_PATH = MODEL_BASE_DIR + "kamen-norm.png"; 
 #elif SPONZA
 	const std::string MODEL_BASE_DIR = "../src/models/sponza/";
 	const std::string MODEL_PATH = MODEL_BASE_DIR + "sponza.obj";
-
-	const std::string TEXTURE_COLOR_PATH = MODEL_BASE_DIR + "KAMEN.JPG";
-	const std::string TEXTURE_NORM_PATH = MODEL_BASE_DIR + "KAMEN-bump.jpg";
+#elif CRYTEC_SPONZA
+	const std::string MODEL_BASE_DIR = "../src/models/crytek-sponza/";
+	const std::string MODEL_PATH = MODEL_BASE_DIR + "sponza.obj";
 #endif
 
+const std::string TEXTURE_COLOR_PATH = MODEL_BASE_DIR + "blank.png";
+const std::string TEXTURE_NORM_PATH = MODEL_BASE_DIR + "blank.png";
 const std::vector<std::string> TEXTURES_PATH = { TEXTURE_COLOR_PATH ,TEXTURE_NORM_PATH };
 
 

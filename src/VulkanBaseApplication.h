@@ -388,9 +388,17 @@ private:
 			vkDestroyImage(device, image, nullptr);
 			vkFreeMemory(device, mem, nullptr);
 		}
-	};
-	FrameBufferAttachment depth;
+	} depth;
 
+	// Depth prepass
+	struct DepthPrepass {
+		FrameBufferAttachment depth;
+		VkFramebuffer frameBuffer;
+		VkRenderPass renderPass;
+		VkSampler depthSampler;
+		VkCommandBuffer commandBuffer = VK_NULL_HANDLE;
+		VkSemaphore semaphore = VK_NULL_HANDLE;
+	} depthPrepass;
 
 	/************************************************************/
 	//					Function Declaration
@@ -437,6 +445,8 @@ private:
 	void createComputeCommandBuffer();
 
 	void createRenderPass();
+
+	void createDepthRenderPass();
 
 	void createVertexBuffer(std::vector<Vertex> & verticesData, VkBuffer& buffer, VkDeviceMemory& bufferMemory);
 

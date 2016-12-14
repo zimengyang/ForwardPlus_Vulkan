@@ -297,6 +297,7 @@ void VulkanBaseApplication::initVulkan() {
 	createSwapChain();
 	createImageViews();
 	createRenderPass();
+	createDepthRenderPass();
 	createShaders();
 	createDescriptorSetLayout();
 	createGraphicsPipeline();
@@ -1094,6 +1095,31 @@ void VulkanBaseApplication::createRenderPass() {
 	}
 }
 
+void createDepthRenderPass() {
+	VkAttachmentDescription attachmentDescription{};
+	attachmentDescription.format = VK_FORMAT_D32_SFLOAT;
+	attachmentDescription.samples = VK_SAMPLE_COUNT_1_BIT;
+	attachmentDescription.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+	attachmentDescription.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+	attachmentDescription.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+	attachmentDescription.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+	attachmentDescription.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+	attachmentDescription.finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
+	VkAttachmentReference depthReference = {};
+	depthReference.attachment = 0;
+	depthReference.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
+	VkSubpassDescription subpassDescription = {};
+	subpassDescription.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+	subpassDescription.colorAttachmentCount = 0;
+	subpassDescription.pDepthStencilAttachment = &depthReference;
+
+	std::array<VkSubpassDependency, 2> dependencies;
+	dependencies[0].srcSubpass = VK_SUBPASS_EXTERNAL;
+	dependencies[0].dstSubpass = 0;
+	dependencies[0].srcStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+}
 
 void VulkanBaseApplication::createVertexBuffer(std::vector<Vertex> & verticesData, VkBuffer& buffer, VkDeviceMemory& bufferMemory) {
 	VkDeviceSize bufferSize = sizeof(verticesData[0]) * verticesData.size();
@@ -2043,7 +2069,11 @@ void VulkanBaseApplication::createTextureSampler(VkSampler & textureSampler) {
 }
 
 
-VkFormat VulkanBaseApplication::findSupportedFormat(const std::vector<VkFormat>& candidates, VkImageTiling tiling, VkFormatFeatureFlags features) {
+VkFormat VulkanBaseApplication::findSupportedFormat(
+	const std::vector<VkFormat>& candidates,
+	VkImageTiling tiling,
+	VkFormatFeatureFlags features) {
+
 	for (VkFormat format : candidates) {
 		VkFormatProperties props;
 		vkGetPhysicalDeviceFormatProperties(physicalDevice, format, &props);

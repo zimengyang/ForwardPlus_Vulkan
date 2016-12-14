@@ -185,7 +185,7 @@ void VulkanBaseApplication::resetTitleAndTiming() {
 		<< "[" << elapsedTime << " ms/frame] "
 		<< "[FPS = " << 1000.0f * float(frameCount) / totalElapsedTime << "] "
 		<< "[resolution = " << WIDTH << "*" << HEIGHT << "] ";
-	
+
 	if (debugMode < debugModeNameStrings.size() && debugMode != 0) {
 		title << "[" << debugModeNameStrings[debugMode] << "]";
 	}
@@ -228,15 +228,16 @@ void VulkanBaseApplication::updateUniformBuffer() {
 	if (keyboardMapping[GLFW_KEY_A - GLFW_KEY_A])
 		camera.ProcessKeyboard(Camera_Movement::LEFT);
 	if (keyboardMapping[GLFW_KEY_D - GLFW_KEY_A])
-		camera.ProcessKeyboard(Camera_Movement::RIGHT); 
+		camera.ProcessKeyboard(Camera_Movement::RIGHT);
 	if (keyboardMapping[GLFW_KEY_Q - GLFW_KEY_A])
-		camera.ProcessKeyboard(Camera_Movement::DOWN); 
+		camera.ProcessKeyboard(Camera_Movement::DOWN);
 	if (keyboardMapping[GLFW_KEY_E - GLFW_KEY_A])
 		camera.ProcessKeyboard(Camera_Movement::UP);
 	vsParams.view = camera.GetViewMatrix();
 
 	// projection matrix
-	vsParams.proj = glm::perspective(glm::radians(45.0f), swapChainExtent.width / (float)swapChainExtent.height, 10.0f, 10000.0f);
+	vsParams.proj = glm::perspective(glm::radians(45.0f),
+		swapChainExtent.width / (float)swapChainExtent.height, 50.0f, 5000.0f);
 	vsParams.proj[1][1] *= -1;
 
 	// cameraPos
@@ -1268,7 +1269,7 @@ void VulkanBaseApplication::createDepthFramebuffer() {
 	imageCreateInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
 	imageCreateInfo.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
 	imageCreateInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-	imageCreateInfo.queueFamilyIndexCount = 1;
+	imageCreateInfo.queueFamilyIndexCount = NULL;
 	imageCreateInfo.pQueueFamilyIndices = nullptr;
 	imageCreateInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 

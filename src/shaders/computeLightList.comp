@@ -4,6 +4,7 @@
 
 #define BLOCK_SIZE 16
 #define MAX_NUM_LIGHTS_PER_TILE 1024
+#define PIXELS_PER_TILE 8
 
 struct Light {
 	vec4 beginPos; // beginPos.w is intensity
@@ -42,12 +43,39 @@ layout(binding = 8) buffer LightGrid {
 	int lightGrid[];
 };
 
+// Convert clip space coordinates to view space
+vec4 ClipToView( vec4 clip )
+{
+    // View space position.
+    vec4 view = params.inverseProj * clip ;
+    // Perspective projection.
+    view = view / view.w;
+
+    return view;
+}
+
+// Convert screen space coordinates to view space.
+vec4 ScreenToView( vec4 screen )
+{
+    // Convert to normalized texture coordinates
+    vec2 texCoord = screen.xy / params.screenDimensions;
+
+    // Convert to clip space
+    vec4 clip = vec4( vec2( texCoord.x, 1.0f - texCoord.y ) * 2.0f - 1.0f, screen.z, screen.w );
+
+    return ClipToView( clip );
+}
+
 bool SphereInsidePlane(vec3 c, float r, vec3 N, float d) {
 	return dot(N, c) - d < -r;
 }
 
-bool SphereInsideFrustum(vec3 c, float r, Frustum frustum) {
+bool SphereInsideFrustum(vec3 c, float r, Frustum frustum, float minDepth, float maxDepth) {
 	bool result = true;
+
+	if (c.z - r > minDepth || c.z + r < maxDepth) {
+		result = false;
+	}
 
 	for (int i = 0; i < 4 && result; ++i) {
 		if (SphereInsidePlane(c, r, frustum.planes[i].xyz, frustum.planes[i].w)) {
@@ -71,6 +99,25 @@ void main()
 		+ gl_GlobalInvocationID.x;
 	uint lightIndexBegin = index * MAX_NUM_LIGHTS_PER_TILE;
 	uint numLightsInTile = 0;
+	vec2 texcoordUnit = 1. / params.screenDimensions;
+	float minDepth = 10000.;
+	float maxDepth = 0.;
+
+	for (int i = 0; i < PIXELS_PER_TILE; ++i) {
+		for (int j = 0; j < PIXELS_PER_TILE; ++j) {
+			vec2 offset = vec2(i, j);
+			vec2 texcoord = (gl_GlobalInvocationID.xy * PIXELS_PER_TILE + offset) * texcoordUnit;
+			float depth = texture(depthSampler, texcoord).x;
+			vec4 screenDepth = vec4(texcoord, depth, 1.);
+			float viewDepth = ScreenToView(screenDepth).z;
+
+			minDepth = min(minDepth, viewDepth);
+			maxDepth = max(maxDepth, viewDepth);
+		}
+	}
+
+	minDepth = min(minDepth, maxDepth);
+	// lights[index].color = vec4(minDepth, maxDepth, 0., 0.);
 
 	for (int i = 0; i < params.numLights; ++i) {
 		float t = sin(params.time * i * .005f);
@@ -80,7 +127,7 @@ void main()
 
 		float radius = lights[i].endPos.w;
 
-		if (SphereInsideFrustum(pos.xyz, radius, frustums[index])) {
+		if (SphereInsideFrustum(pos.xyz, radius, frustums[index], minDepth, maxDepth)) {
 			lightIndex[lightIndexBegin + numLightsInTile] = i;
 			numLightsInTile += 1;
 			if(numLightsInTile >= MAX_NUM_LIGHTS_PER_TILE)

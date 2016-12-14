@@ -169,6 +169,7 @@
     <ClCompile Include="src\VulkanTools.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="src\camera.h" />
     <ClInclude Include="src\VulkanBaseApplication.h" />
     <ClInclude Include="src\VDeleter.h" />
   </ItemGroup>

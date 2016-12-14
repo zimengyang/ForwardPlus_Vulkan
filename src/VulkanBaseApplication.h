@@ -22,7 +22,7 @@
 #include <random>
 
 #include "VDeleter.h"
-
+#include "camera.h"
 
 // debug validation layers
 #ifdef NDEBUG
@@ -40,12 +40,25 @@ void DestroyDebugReportCallbackEXT(VkInstance instance, VkDebugReportCallbackEXT
 extern const int WIDTH;
 extern const int HEIGHT;
 
-//const std::string MODEL_PATH = "../src/models/chalet/chalet.obj";
-const std::string MODEL_PATH = "../src/models/sibenik/sibenik.obj";
+#define SIBENIK 0
+#define SPONZA 0
+#define CRYTEC_SPONZA 1
 
-const std::string TEXTURE_PATH1 = "../src/models/sibenik/kamen.png";
-const std::string TEXTURE_PATH2 = "../src/models/sibenik/kamen-norm.png";
-const std::vector<std::string> TEXTURES_PATH = { TEXTURE_PATH1 ,TEXTURE_PATH2 };
+#if SIBENIK
+	const std::string MODEL_BASE_DIR = "../src/models/sibenik/";
+	const std::string MODEL_PATH = MODEL_BASE_DIR + "sibenik.obj";
+#elif SPONZA
+	const std::string MODEL_BASE_DIR = "../src/models/sponza/";
+	const std::string MODEL_PATH = MODEL_BASE_DIR + "sponza.obj";
+#elif CRYTEC_SPONZA
+	const std::string MODEL_BASE_DIR = "../src/models/crytek-sponza/";
+	const std::string MODEL_PATH = MODEL_BASE_DIR + "sponza.obj";
+#endif
+
+const std::string TEXTURE_COLOR_PATH = MODEL_BASE_DIR + "blank.png";
+const std::string TEXTURE_NORM_PATH = MODEL_BASE_DIR + "blank.png";
+const std::vector<std::string> TEXTURES_PATH = { TEXTURE_COLOR_PATH ,TEXTURE_NORM_PATH };
+
 
 const std::vector<const char*> validationLayers = {
 	"VK_LAYER_LUNARG_standard_validation"
@@ -192,6 +205,7 @@ private:
 		VkPipelineShaderStageCreateInfo csLightList;
 	} shaderStage;
 
+
 	// Pipeline(s)
 	struct Pipelines{
 		VkPipeline graphics; // base pipeline
@@ -210,6 +224,22 @@ private:
 
 	} pipelines;
 
+	// Textures
+	struct Texture {
+		VkImage image;
+		VkImageView imageView;
+		VkDeviceMemory imageMemory;
+		VkSampler sampler;
+
+		void cleanup(VkDevice device) {
+			vkDestroyImageView(device, imageView, nullptr);
+			vkDestroyImage(device, image, nullptr);
+			vkFreeMemory(device, imageMemory, nullptr);
+			vkDestroySampler(device, sampler, nullptr);
+		}
+	};
+	std::array<Texture, 2> textures;
+
 	// Vertex/Index buffer struct
 	struct VertexBuffer {
 		std::vector<Vertex> verticesData;
@@ -223,30 +253,6 @@ private:
 		VkDeviceMemory mem;
 	};
 
-	struct Mesh {
-		VertexBuffer vertices;
-		IndexBuffer indices;
-
-		void cleanup(VkDevice device) {
-			vkDestroyBuffer(device, vertices.buffer, nullptr);
-			vkFreeMemory(device, vertices.mem, nullptr);
-			vkDestroyBuffer(device, indices.buffer, nullptr);
-			vkFreeMemory(device, indices.mem, nullptr);
-		}
-	};
-
-	struct Meshes {
-		Mesh scene; // main scene mesh
-		Mesh axis; // axis mesh
-		Mesh quad; // quad mesh
-
-		void cleanup(VkDevice device) {
-			scene.cleanup(device);
-			axis.cleanup(device);
-			quad.cleanup(device);
-		}
-	} meshs;
-
 	// vulkan buffers
 	struct VulkanBuffer {
 		VkBuffer buffer;
@@ -259,6 +265,85 @@ private:
 			vkFreeMemory(device, memory, nullptr);
 		}
 	};
+
+	struct Material {
+		glm::vec4 ambient; // Ka
+		glm::vec4 diffuse; // Kd
+		//glm::vec4 specular; // Ks
+
+		float specularPower;
+		int useTextureMap;
+		int useNormMap;
+		int useSpecMap;
+		//---------------------16 bytes
+	};
+
+	struct Mesh {
+		VertexBuffer vertices;
+		IndexBuffer indices;
+
+		void cleanup(VkDevice device) {
+			vkDestroyBuffer(device, vertices.buffer, nullptr);
+			vkFreeMemory(device, vertices.mem, nullptr);
+			vkDestroyBuffer(device, indices.buffer, nullptr);
+			vkFreeMemory(device, indices.mem, nullptr);
+		}
+	};
+	
+	struct MeshGroup {
+		VertexBuffer vertices;
+		std::vector<IndexBuffer> indexGroups;
+		std::vector<Material> materials;
+		std::vector<VkDescriptorSet> descriptorSets;
+		std::vector<VulkanBuffer> materialBuffers;
+		std::vector<Texture> textureMaps;
+		std::vector<Texture> normalMaps;
+		std::vector<Texture> specMaps;
+
+		void cleanup(VkDevice device) {
+			vkDestroyBuffer(device, vertices.buffer, nullptr);
+			vkFreeMemory(device, vertices.mem, nullptr);
+			
+			for (auto & indexBuffer : indexGroups) {
+				vkDestroyBuffer(device, indexBuffer.buffer, nullptr);
+				vkFreeMemory(device, indexBuffer.mem, nullptr);
+			}
+
+			for (auto & buffer : materialBuffers) {
+				buffer.cleanup(device);
+			}
+
+			for (int i = 0; i < materials.size(); ++i) {
+				if (materials[i].useNormMap > 0) {
+					normalMaps[i].cleanup(device);
+				}
+				if (materials[i].useTextureMap > 0) {
+					textureMaps[i].cleanup(device);
+				}
+				if (materials[i].useSpecMap > 0) {
+					specMaps[i].cleanup(device);
+				}
+			}
+
+		}
+	};
+
+	struct Meshes {
+		Mesh scene; // main scene mesh
+		Mesh axis; // axis mesh
+		Mesh quad; // quad mesh
+
+		MeshGroup meshGroupScene; // meshGroup scene by materials
+
+		void cleanup(VkDevice device) {
+			//scene.cleanup(device);
+			//axis.cleanup(device);
+			//quad.cleanup(device);
+			meshGroupScene.cleanup(device);
+		}
+	} meshs;
+
+
 
 	// uniform buffers
 	struct UniformBuffers {
@@ -361,21 +446,6 @@ private:
 		SBO_frustums frustums;
 	} sboHostData;
 
-	// Textures
-	struct Texture {
-		VkImage image;
-		VkImageView imageView;
-		VkDeviceMemory imageMemory;
-		VkSampler sampler;
-
-		void cleanup(VkDevice device) {
-			vkDestroyImageView(device, imageView, nullptr);
-			vkDestroyImage(device, image, nullptr);
-			vkFreeMemory(device, imageMemory, nullptr);
-			vkDestroySampler(device, sampler, nullptr);
-		}
-	};
-	std::array<Texture, 2> textures;
 
 	// Frame buffer attachment struct
 	struct FrameBufferAttachment {
@@ -512,6 +582,8 @@ private:
 
 	void createDescriptorSet();
 
+	void createDescriptorSetsForMeshGroup(VkDescriptorSet & descriptorSet, VulkanBuffer & buffer, int useTex, Texture & texMap, int useNorm, Texture & norMap, int useSpec, Texture & specMap);
+
 	void createTextureImage(const std::string& texFilename, VkImage & texImage, VkDeviceMemory & texImageMemory);
 
 	void createImage(uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage & image, VkDeviceMemory & imageMemory);
@@ -534,7 +606,9 @@ private:
 
 	void createDepthResources();
 
-	void loadModel(std::vector<Vertex> & vertices, std::vector<uint32_t> & indices, const std::string & modelFilename, float scale = 1.0f);
+	void loadModel(std::vector<Vertex> & vertices, std::vector<uint32_t> & indices, const std::string & modelFilename, const std::string & modelBaseDir, float scale = 1.0f);
+	
+	void loadModel(MeshGroup & meshGroup, const std::string & modelFilename, const std::string & modelBaseDir, float scale = 1.0f);
 
 	// load axis info
 	void loadAxisInfo();
@@ -546,6 +620,9 @@ private:
 	void loadTextureQuad();
 
 	void prepareTextures();
+
+	void prepareTexture(std::string & texturePath, Texture & texture);
+
 
 	// tools
 	bool isDeviceSuitable(VkPhysicalDevice device);
@@ -568,6 +645,7 @@ private:
 	void endSingleTimeCommands(VkCommandBuffer commandBuffer);
 
 	void resetTitleAndTiming();
+
 };
 
 // callbacks

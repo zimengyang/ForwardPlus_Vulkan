@@ -71,7 +71,7 @@ void main()
 	uint numLightsInTile = 0;
 
 	for (int i = 0; i < params.numLights; ++i) {
-		float t = sin(params.time * i * .0005f);
+		float t = sin(params.time * i * .005f);
 		vec3 beginPos = lights[i].beginPos.xyz;
 		vec3 endPos = lights[i].endPos.xyz;
 		vec4 pos = params.viewMat * vec4((1 - t) * beginPos + t * endPos, 1.f);

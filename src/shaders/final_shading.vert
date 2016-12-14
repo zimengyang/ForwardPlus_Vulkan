@@ -19,10 +19,20 @@ layout(location = 2) out vec3 fragNormal;
 layout(location = 3) out vec3 fragPosWorldSpace;
 layout(location = 4) out vec3 fragPosViewSpace;
 layout(location = 5) out vec3 cameraPosWorldSpace;
+layout(location = 6) out mat3 TBN;
+
 
 out gl_PerVertex {
     vec4 gl_Position;
 };
+
+mat3 getTBN(vec3 geomnor)
+{
+    vec3 up = vec3(0.001, 1.0, 0.001);
+    vec3 tangent = normalize(cross(geomnor, up));
+    vec3 bitangent = cross(geomnor, tangent);
+    return mat3(tangent, bitangent, geomnor);
+}
 
 void main() {
    
@@ -40,4 +50,6 @@ void main() {
     gl_Position = posProjSpace;
 
     cameraPosWorldSpace = ubo.cameraPos.xyz;
+
+    TBN = getTBN(inNormal);
 }

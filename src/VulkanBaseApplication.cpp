@@ -2060,7 +2060,7 @@ void VulkanBaseApplication::createDescriptorSet() {
 	lightGridDescriptorInfo.offset = 0;
 	lightGridDescriptorInfo.range = sbo.lightGrid.allocSize;
 
-	std::array<VkDescriptorImageInfo, 4> imageInfo = {};
+	std::array<VkDescriptorImageInfo, 3> imageInfo = {};
 	imageInfo[0].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 	imageInfo[0].imageView = textures[0].imageView; //textureImageViews[0];
 	imageInfo[0].sampler = textures[0].sampler; // textureSamplers[0];

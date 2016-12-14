@@ -141,7 +141,7 @@ void main() {
         finalColor += att * irr;
 
     }
-    finalColor += ambientColor;
+    finalColor += ambientColor * 0.3;
     //outColor = vec4(finalColor, 1.0);
 
     switch(params.debugMode){
@@ -186,9 +186,9 @@ void main() {
 			break;
 
         case 7:
-        vec3 color = finalColor * finalColor;
-        color = sqrt(pow(color, vec3(1.0 / 2.0)));
-        outColor = vec4(color, 1.0);
+            vec3 color = finalColor * finalColor;
+            color = sqrt(pow(color, vec3(1.0 / 2.0)));
+            outColor = vec4(color, 1.0);
             break;
 
         default:

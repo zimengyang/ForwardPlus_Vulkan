@@ -42,6 +42,17 @@ bool keyboardMapping[26];
 
 // deubg mode int
 int debugMode;
+const std::vector<std::string> debugModeNameStrings = {
+	"none",
+	"diffuse",
+	"frag normal",
+	"normal texture",
+	"mapped normal",
+	"spec texture",
+	"heat map",
+	"gamma correction"
+};
+
 const bool bDrawAxis = false;
 
 // forward plus pixels per tile
@@ -173,7 +184,12 @@ void VulkanBaseApplication::resetTitleAndTiming() {
 		<< "[num_lights = " << NUM_OF_LIGHTS << "] "
 		<< "[" << elapsedTime << " ms/frame] "
 		<< "[FPS = " << 1000.0f * float(frameCount) / totalElapsedTime << "] "
-		<< "[resolution = " << WIDTH << "*" << HEIGHT << "]";
+		<< "[resolution = " << WIDTH << "*" << HEIGHT << "] ";
+	
+	if (debugMode < debugModeNameStrings.size() && debugMode != 0) {
+		title << "[" << debugModeNameStrings[debugMode] << "]";
+	}
+
 	glfwSetWindowTitle(window, title.str().c_str());
 	if (frameCount % 50 == 0) {
 		std::cout << "Frame count = " << frameCount << " " << title.str() << std::endl;
@@ -1477,7 +1493,7 @@ void VulkanBaseApplication::createLightInfos() {
 		float posX = u(g) * dX - dX / 2.0f;  
 		float posY = u(g) * dY + 100.0f;
 		float posZ = u(g) * dZ - dZ / 2.0f;
-		float intensity = u(g) * 0.01f;
+		float intensity = u(g) * 0.005f;
 
 		sboHostData.lights.lights[i].beginPos = glm::vec4(posX, posY, posZ, intensity);
 		sboHostData.lights.lights[i].endPos = sboHostData.lights.lights[i].beginPos;

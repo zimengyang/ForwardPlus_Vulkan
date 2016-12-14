@@ -141,7 +141,7 @@ void main() {
         finalColor += att * irr;
 
     }
-    finalColor += ambientColor * 0.3;
+    finalColor += ambientColor * 0.5;
     //outColor = vec4(finalColor, 1.0);
 
     switch(params.debugMode){

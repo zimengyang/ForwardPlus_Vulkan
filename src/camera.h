@@ -9,11 +9,13 @@ enum Camera_Movement {
 	FORWARD,
 	BACKWARD,
 	LEFT,
-	RIGHT
+	RIGHT,
+	UP,
+	DOWN
 };
 
 // Default camera values
-const float YAW = 0.0f;
+const float YAW = 180.0f;
 const float PITCH = 0.0f;
 const float SPEED = 5.0f;
 const float SENSITIVTY = 0.25f;
@@ -43,7 +45,7 @@ public:
 		glm::vec3 up = glm::vec3(0.0f, 1.0f, 0.0f), 
 		float yaw = YAW, 
 		float pitch = PITCH) : 
-			front(glm::vec3(-1.0f, 0.0f, 0.0f)), 
+			front(glm::vec3(1.0f, 0.0f, 0.0f)), 
 			movementSpeed(SPEED), 
 			mouseSensitivity(SENSITIVTY), 
 			zoom(ZOOM) {
@@ -84,6 +86,12 @@ public:
 		}
 		if (direction == RIGHT) {
 			this->position += this->right * velocity;
+		}
+		if (direction == UP) {
+			this->position += this->up * velocity;
+		}
+		if (direction == DOWN) {
+			this->position -= this->up * velocity;
 		}
 	}
 

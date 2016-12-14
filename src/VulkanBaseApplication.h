@@ -432,7 +432,7 @@ private:
 		} lights[MAX_NUM_LIGHTS];;
 	};
 
-	#define MAX_NUM_FRUSTRUMS 20000
+	#define MAX_NUM_FRUSTRUMS 30000
 	struct SBO_frustums {
 		// frustum definition
 		struct {

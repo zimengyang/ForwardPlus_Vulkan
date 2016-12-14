@@ -1,8 +1,8 @@
 
 #include "VulkanBaseApplication.h"
 
-extern const int WIDTH = 768;
-extern const int HEIGHT = 512;
+extern const int WIDTH = 1280;
+extern const int HEIGHT = 720;
 
 VulkanBaseApplication app;
 

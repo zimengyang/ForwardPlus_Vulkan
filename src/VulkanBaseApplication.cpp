@@ -61,7 +61,7 @@ const int PIXELS_PER_TILE = 8;
 const int TILES_PER_THREADGROUP = 16;
 
 // number of lights
-const int NUM_OF_LIGHTS = 100;
+const int NUM_OF_LIGHTS = 1000;
 
 namespace std {
 	template<> struct hash<Vertex> {
@@ -1736,7 +1736,7 @@ void VulkanBaseApplication::createLightInfos() {
 	float dX = 5000.0f;
 	float dY = 500.0f;
 	float dZ = 500.0;
-	float radius = 500.0f;
+	float radius = 200.0f;
 	for (int i = 0; i < fpParams.numLights; ++i) {
 
 		float posX = u(g) * dX - dX / 2.0f;
@@ -2852,7 +2852,7 @@ void VulkanBaseApplication::createDescriptorSetsForMeshGroup(VkDescriptorSet & d
 
 	descriptorWrites[9].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
 	descriptorWrites[9].dstSet = descriptorSet;
-	descriptorWrites[9].dstBinding = 1; 
+	descriptorWrites[9].dstBinding = 1;
 	descriptorWrites[9].dstArrayElement = 0;
 	descriptorWrites[9].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
 	descriptorWrites[9].descriptorCount = 1;

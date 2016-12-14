@@ -82,7 +82,7 @@ vec3 applyNormalMap(mat3 TBN, vec3 normap) {
 }
 
 void main() {
-    
+
     vec2 pixelCoord = vec2(gl_FragCoord.x, gl_FragCoord.y ) / params.screenDimensions;
 
 	ivec2 tileID = ivec2(gl_FragCoord.x, params.screenDimensions.y - gl_FragCoord.y ) / PIXELS_PER_TILE;
@@ -93,7 +93,7 @@ void main() {
     // read material properties
     float specularPower = ubo_mat.material.specularPower;
 
-    vec3 diffuseColor = ubo_mat.material.diffuse.xyz; 
+    vec3 diffuseColor = ubo_mat.material.diffuse.xyz;
     if(ubo_mat.material.useTextureMap > 0)
         diffuseColor = texture(texColorSampler, fragTexCoord).xyz;
 
@@ -111,9 +111,9 @@ void main() {
     vec3 ambientColor = ubo_mat.material.ambient.xyz * diffuseColor;
 
     vec3 viewDir = normalize(cameraPosWorldSpace.xyz - fragPosWorldSpace);
-    
+
     uint lightIndexBegin = tileIndex * MAX_NUM_LIGHTS_PER_TILE;
-    uint lightNum = lightGrid[tileIndex];    
+    uint lightNum = lightGrid[tileIndex];
     // lightGrid[TileIndex] = lights need to be considered in tile
     for(int i = 0; i < lightNum; ++i) {
         int lightIndex = lightIndices[i + lightIndexBegin];
@@ -122,7 +122,7 @@ void main() {
 
 		vec3 beginPos = currentLight.beginPos.xyz;
 		vec3 endPos = currentLight.endPos.xyz;
-		float t = sin(params.time * lightIndex * .005f);
+		float t = sin(params.time * lightIndex * .001f);
 
         vec3 lightPos = (1 - t) * beginPos + t * endPos;
         vec3 lightColor = currentLight.color.xyz;
@@ -158,7 +158,7 @@ void main() {
             outColor = vec4(diffuseColor, 1.0);
             break;
 
-        case 2: // original normal 
+        case 2: // original normal
             outColor = vec4(fragNormal, 1.0);
             break;
 
@@ -176,18 +176,18 @@ void main() {
 
 		case 6: // light heat map
             float tmp = lightGrid[tileIndex];
-            if(tmp <= 100.f)
+            if(tmp <= 50.f)
             {
-                outColor = vec4( 0.f, 0.f, tmp / 100.f, 1.f );
+                outColor = vec4( 0.f, 0.f, tmp / 50.f, 1.f );
             }
-            else if(tmp > 100.f && tmp <= 200.f) {
-                outColor = vec4( 0.f, (tmp - 100.f) / 100.0f, 1.f, 1.f );
+            else if(tmp <= 100.f) {
+                outColor = vec4( 0.f, (tmp - 50.f) / 50.0f, 1.f, 1.f );
             }
             else {
-                outColor = vec4( (tmp - 200.f) / 100.f, 1.f, 1.f, 1.f );
+                outColor = vec4( (tmp - 100.f) / 100.f, 1.f, 1.f, 1.f );
             }
 
-            outColor *= vec4(diffuseColor, 1.0);
+            // outColor *= vec4(diffuseColor, 1.0);
 			break;
 
         case 7:
@@ -198,10 +198,6 @@ void main() {
 
         case 8:
             outColor = vec4(texture(depthTexSampler, pixelCoord).rgb, 1.0);
-            break;
-        
-        case 9:
-            outColor = vec4(texture(depthTexSampler, pixelCoord).g * vec3(1), 1.0);
             break;
 
         default:

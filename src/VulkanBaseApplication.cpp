@@ -298,6 +298,7 @@ void VulkanBaseApplication::initVulkan() {
 	createImageViews();
 	createRenderPass();
 	createDepthRenderPass();
+	createDepthFramebuffer();
 	createShaders();
 	createDescriptorSetLayout();
 	createGraphicsPipeline();
@@ -325,6 +326,7 @@ void VulkanBaseApplication::initVulkan() {
 	createDescriptorSet();
 	createCommandBuffers();
 	createComputeCommandBuffer();
+	createDepthCommandBuffer();
 	createSemaphores();
 }
 
@@ -1031,6 +1033,58 @@ void VulkanBaseApplication::createComputeCommandBuffer() {
 	vkEndCommandBuffer(cmdBuffers.compute);
 }
 
+void VulkanBaseApplication::createDepthCommandBuffer() {
+	if (depthPrepass.commandBuffer == VK_NULL_HANDLE) {
+		VkCommandBufferAllocateInfo cbAllocInfo = {};
+		cbAllocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+		cbAllocInfo.commandPool = commandPool;
+		cbAllocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+		cbAllocInfo.commandBufferCount = 1;
+
+		if (vkAllocateCommandBuffers(device, &cbAllocInfo, &depthPrepass.commandBuffer)
+				!= VK_SUCCESS) {
+			throw std::runtime_error("failed to allocate depth command buffer");
+		}
+	}
+
+	if (depthPrepass.semaphore == VK_NULL_HANDLE) {
+		VkSemaphoreCreateInfo semCreateInfo = {};
+		semCreateInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+		semCreateInfo.pNext = nullptr;
+		semCreateInfo.flags = NULL;
+
+		if (vkCreateSemaphore(device, &semCreateInfo, nullptr, &depthPrepass.semaphore)
+				!= VK_SUCCESS) {
+			throw std::runtime_error("failed to allocate depth semaphore!");
+		}
+	}
+
+	VkCommandBufferBeginInfo cbBeginInfo = {};
+	cbBeginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+	cbBeginInfo.pNext = nullptr;
+	cbBeginInfo.flags = VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT;
+	cbBeginInfo.pInheritanceInfo = nullptr;
+
+	std::array<VkClearValue, 1> clearVals;
+	clearVals[0].depthStencil = {1.f, 0};
+
+	VkRenderPassBeginInfo rpBeginInfo = {};
+	rpBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+	rpBeginInfo.pNext = nullptr;
+	rpBeginInfo.renderPass = depthPrepass.renderPass;
+	rpBeginInfo.framebuffer = depthPrepass.frameBuffer;
+	rpBeginInfo.renderArea.offset.x = 0;
+	rpBeginInfo.renderArea.offset.y = 0;
+	rpBeginInfo.renderArea.extent.width = swapChainExtent.width;
+	rpBeginInfo.renderArea.extent.height = swapChainExtent.height;
+	rpBeginInfo.clearValueCount = static_cast<uint32_t>(clearVals.size());
+	rpBeginInfo.pClearValues = clearVals.data();
+
+	vkBeginCommandBuffer(depthPrepass.commandBuffer, &cbBeginInfo);
+
+	// todo: bind pipeline
+}
+
 void VulkanBaseApplication::createRenderPass() {
 
 	// color attachment
@@ -1095,7 +1149,7 @@ void VulkanBaseApplication::createRenderPass() {
 	}
 }
 
-void createDepthRenderPass() {
+void VulkanBaseApplication::createDepthRenderPass() {
 	VkAttachmentDescription attachmentDescription{};
 	attachmentDescription.format = VK_FORMAT_D32_SFLOAT;
 	attachmentDescription.samples = VK_SAMPLE_COUNT_1_BIT;
@@ -1146,6 +1200,109 @@ void createDepthRenderPass() {
 	if (vkCreateRenderPass(device, &renderPassCreateInfo, nullptr,
 			&depthPrepass.renderPass) != VK_SUCCESS) {
 		throw std::runtime_error("failed to create depth renderpass!");
+	}
+}
+
+void VulkanBaseApplication::createDepthFramebuffer() {
+	VkImageCreateInfo imageCreateInfo = {};
+	imageCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+	imageCreateInfo.pNext = nullptr;
+	imageCreateInfo.flags = NULL;
+	imageCreateInfo.imageType = VK_IMAGE_TYPE_2D;
+	imageCreateInfo.format = VK_FORMAT_D32_SFLOAT;
+	imageCreateInfo.extent.width = swapChainExtent.width;
+	imageCreateInfo.extent.height = swapChainExtent.height;
+	imageCreateInfo.extent.depth = 1;
+	imageCreateInfo.mipLevels = 1;
+	imageCreateInfo.arrayLayers = 1;
+	imageCreateInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+	imageCreateInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
+	imageCreateInfo.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+	imageCreateInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+	imageCreateInfo.queueFamilyIndexCount = 1;
+	imageCreateInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+
+	if (vkCreateImage(device, &imageCreateInfo, nullptr, &depthPrepass.depth.image)
+			!= VK_SUCCESS) {
+		throw std::runtime_error("failed to create depth framebuffer image!");
+	}
+
+	VkMemoryRequirements memReqs;
+
+	vkGetImageMemoryRequirements(device, depthPrepass.depth.image, &memReqs);
+
+	VkMemoryAllocateInfo memAllocInfo = {};
+	memAllocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+	memAllocInfo.pNext = nullptr;
+	memAllocInfo.allocationSize = memReqs.size;
+	memAllocInfo.memoryTypeIndex = findMemoryType(memReqs.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+
+	if (vkAllocateMemory(device, &memAllocInfo, nullptr, &depthPrepass.depth.mem)
+			!= VK_SUCCESS) {
+		throw std::runtime_error("failed to allocate depth framebuffer image memory!");
+	}
+
+	if (vkBindImageMemory(device, depthPrepass.depth.image, depthPrepass.depth.mem, 0)
+			!= VK_SUCCESS) {
+		throw std::runtime_error("failed to bind depth framebuffer image memory!");
+	}
+
+	VkImageViewCreateInfo imageViewCreateInfo = {};
+	imageViewCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+	imageViewCreateInfo.pNext = nullptr;
+	imageViewCreateInfo.flags = NULL;
+	imageViewCreateInfo.image = depthPrepass.depth.image;
+	imageViewCreateInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+	imageViewCreateInfo.format = VK_FORMAT_D32_SFLOAT;
+	imageViewCreateInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+	imageViewCreateInfo.subresourceRange.baseMipLevel = 0;
+	imageViewCreateInfo.subresourceRange.levelCount = 1;
+	imageViewCreateInfo.subresourceRange.baseArrayLayer = 0;
+	imageViewCreateInfo.subresourceRange.layerCount = 1;
+
+	if ( vkCreateImageView(device, &imageViewCreateInfo, nullptr, &depthPrepass.depth.view)
+			!= VK_SUCCESS) {
+		throw std::runtime_error("failed to bind depth framebuffer imageview!");
+	}
+
+	VkSamplerCreateInfo samplerCreateInfo = {};
+	samplerCreateInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+	samplerCreateInfo.pNext = nullptr;
+	samplerCreateInfo.flags = NULL;
+	samplerCreateInfo.magFilter = VK_FILTER_LINEAR;
+	samplerCreateInfo.minFilter = VK_FILTER_LINEAR;
+	samplerCreateInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+	samplerCreateInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+	samplerCreateInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+	samplerCreateInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+	samplerCreateInfo.mipLodBias = 0;
+	samplerCreateInfo.anisotropyEnable = VK_FALSE;
+	samplerCreateInfo.maxAnisotropy = 0;
+	samplerCreateInfo.compareEnable = VK_FALSE;
+	samplerCreateInfo.minLod = 0.f;
+	samplerCreateInfo.maxLod = 1.f;
+	samplerCreateInfo.borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
+	samplerCreateInfo.unnormalizedCoordinates = VK_FALSE;
+
+	if (vkCreateSampler(device, &samplerCreateInfo, nullptr, &depthPrepass.depthSampler)
+			!= VK_SUCCESS) {
+		throw std::runtime_error("failed to bind depth sampler!");
+	}
+
+	VkFramebufferCreateInfo fbCreateInfo = {};
+	fbCreateInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+	fbCreateInfo.pNext = nullptr;
+	fbCreateInfo.flags = NULL;
+	fbCreateInfo.renderpass = depthPrepass.renderPass;
+	fbCreateInfo.attachmentCount = 1;
+	fbCreateInfo.pAttachments = &depthPrepass.depth.view;
+	fbCreateInfo.width = swapChainExtent.width;
+	fbCreateInfo.height = swapChainExtent.height;
+	fbCreateInfo.layers = 1;
+
+	if (vkCreateFramebuffer(device, &fbCreateInfo, nullptr, depthPrepass.frameBuffer)
+			!= VK_SUCCESS) {
+		throw std::runtime_error("failed to bind depth framebuffer!");
 	}
 }
 
@@ -1210,8 +1367,7 @@ void VulkanBaseApplication::createSemaphores() {
 	semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
 
 	if (vkCreateSemaphore(device, &semaphoreInfo, nullptr, imageAvailableSemaphore.replace()) != VK_SUCCESS ||
-		vkCreateSemaphore(device, &semaphoreInfo, nullptr, renderFinishedSemaphore.replace()) != VK_SUCCESS) {
-
+			vkCreateSemaphore(device, &semaphoreInfo, nullptr, renderFinishedSemaphore.replace()) != VK_SUCCESS) {
 		throw std::runtime_error("failed to create semaphores!");
 	}
 }

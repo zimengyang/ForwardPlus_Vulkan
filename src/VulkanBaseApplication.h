@@ -444,9 +444,13 @@ private:
 
 	void createComputeCommandBuffer();
 
+	void createDepthCommandBuffer();
+
 	void createRenderPass();
 
 	void createDepthRenderPass();
+
+	void createDepthFramebuffer();
 
 	void createVertexBuffer(std::vector<Vertex> & verticesData, VkBuffer& buffer, VkDeviceMemory& bufferMemory);
 

@@ -82,10 +82,12 @@ vec3 applyNormalMap(mat3 TBN, vec3 normap) {
 }
 
 void main() {
+    
+    vec2 pixelCoord = vec2(gl_FragCoord.x, gl_FragCoord.y ) / params.screenDimensions;
 
 	ivec2 tileID = ivec2(gl_FragCoord.x, params.screenDimensions.y - gl_FragCoord.y ) / PIXELS_PER_TILE;
 	int tileIndex = tileID.y * params.numThreads.x + tileID.x;
-    
+
     vec3 finalColor = vec3(0,0,0);
 
     // read material properties
@@ -195,9 +197,12 @@ void main() {
             break;
 
         case 8:
-            outColor = vec4(texture(depthTexSampler, fragTexCoord).r * vec3(1,1,1), 1.0);
+            outColor = vec4(texture(depthTexSampler, pixelCoord).rgb, 1.0);
             break;
         
+        case 9:
+            outColor = vec4(texture(depthTexSampler, pixelCoord).g * vec3(1), 1.0);
+            break;
 
         default:
             outColor = vec4(finalColor, 1.0);

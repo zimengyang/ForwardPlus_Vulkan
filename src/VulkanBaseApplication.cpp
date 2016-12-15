@@ -392,6 +392,7 @@ void VulkanBaseApplication::initVulkan() {
 
 
 	createCommandBuffers();
+	createFrustumCommandBuffer();
 	createComputeCommandBuffer();
 	createDepthCommandBuffer();
 	createSemaphores();
@@ -960,6 +961,20 @@ void VulkanBaseApplication::createCommandBuffers() {
 		if (vkEndCommandBuffer(cmdBuffers.display[i]) != VK_SUCCESS) {
 			throw std::runtime_error("failed to record command buffer!");
 		}
+	}
+}
+
+void VulkanBaseApplication::createFrustumCommandBuffer() {
+	VkCommandBufferAllocateInfo cmdBufInfo = {};
+	cmdBufInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+	cmdBufInfo.pNext = nullptr;
+	cmdBufInfo.commandPool = commandPool;
+	cmdBufInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+	cmdBufInfo.commandBufferCount = 1;
+
+	if (vkAllocateCommandBuffers(device, &cmdBufInfo,
+		&cmdBuffers.frustum) != VK_SUCCESS) {
+		throw std::runtime_error("failed to allocate compute command buffers!");
 	}
 }
 

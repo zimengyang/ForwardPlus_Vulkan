@@ -96,8 +96,13 @@ void main() {
     float specularPower = ubo_mat.material.specularPower;
 
     vec3 diffuseColor = ubo_mat.material.diffuse.xyz;
+    float alpha = 1.0f;
     if(ubo_mat.material.useTextureMap > 0)
-        diffuseColor = texture(texColorSampler, fragTexCoord).xyz;
+    {
+        vec4 tex4 = texture(texColorSampler, fragTexCoord);
+        alpha = tex4.w;
+        diffuseColor = tex4.xyz;
+    }
 
     vec3 normal = fragNormal;
     vec3 normalMap = vec3(0,0,0);
@@ -182,22 +187,22 @@ void main() {
 
 		case 6: // light heat map
             float tmp = lightGrid[tileIndex];
-            if(tmp <= 30.f)
+            if(tmp <= 20.f)
             {
-                outColor = vec4( 0.f, 0.f, tmp / 30.f, 1.f );
+                outColor = vec4( 0.f, 0.f, tmp / 20.f, 1.f );
             }
-            else if(tmp <= 60.f) {
-                outColor = vec4( 0.f, (tmp - 30.f) / 30.0f, 1.f, 1.f );
+            else if(tmp <= 40.f) {
+                outColor = vec4( 0.f, (tmp - 20.f) / 20.0f, 1.f, 1.f );
             }
             else {
-                outColor = vec4( (tmp - 60.f) / 30.f, 1.f, 1.f, 1.f );
+                outColor = vec4( (tmp - 40.f) / 20.f, 1.f, 1.f, 1.f );
             }
 
             // outColor *= vec4(diffuseColor, 1.0);
 			break;
 
         case 7: // depth color
-            outColor = vec4(texture(depthTexSampler, pixelCoord).rgb, 1.0);
+            outColor = vec4(pow(texture(depthTexSampler, pixelCoord).rgb, vec3(2.0,2.0,2.0)), 1.0);
             break;
 
         case 8: // gama correction 
@@ -209,4 +214,7 @@ void main() {
             break;
 
     }
+
+    if(alpha < 0.1)
+        discard;
 }

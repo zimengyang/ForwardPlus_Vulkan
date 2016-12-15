@@ -186,6 +186,9 @@ private:
 	VDeleter<VkSemaphore> imageAvailableSemaphore{ device, vkDestroySemaphore };
 	VDeleter<VkSemaphore> renderFinishedSemaphore{ device, vkDestroySemaphore };
 
+	// fence
+	VDeleter<VkFence> fence {device, vkDestroyFence};
+
 	// shader modules
 	std::vector<VDeleter<VkShaderModule>> shaderModules;
 
@@ -422,8 +425,8 @@ private:
 	} uboHostData;
 
 	// storage buffer object to store lights
-	#define MAX_NUM_LIGHTS 10000
-	#define MAX_NUM_LIGHTS_PER_TILE 1024
+	#define MAX_NUM_LIGHTS 5000
+	#define MAX_NUM_LIGHTS_PER_TILE 128
 	struct SBO_lights {
 		// light information
 		struct {
@@ -433,7 +436,7 @@ private:
 		} lights[MAX_NUM_LIGHTS];;
 	};
 
-	#define MAX_NUM_FRUSTRUMS 30000
+	#define MAX_NUM_FRUSTRUMS 20000
 	struct SBO_frustums {
 		// frustum definition
 		struct {

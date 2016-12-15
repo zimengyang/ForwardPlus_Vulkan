@@ -2,8 +2,10 @@
 #extension GL_ARB_separate_shader_objects : enable
 #extension GL_ARB_shading_language_420pack : enable
 
-#define MAX_NUM_LIGHTS_PER_TILE 1024
-#define PIXELS_PER_TILE 8
+#define PIXELS_PER_TILE 16
+
+
+#define MAX_NUM_LIGHTS_PER_TILE 128
 
 struct Light {
 	vec4 beginPos; // beginPos.w is intensity
@@ -94,8 +96,13 @@ void main() {
     float specularPower = ubo_mat.material.specularPower;
 
     vec3 diffuseColor = ubo_mat.material.diffuse.xyz;
+    float alpha = 1.0f;
     if(ubo_mat.material.useTextureMap > 0)
-        diffuseColor = texture(texColorSampler, fragTexCoord).xyz;
+    {
+        vec4 tex4 = texture(texColorSampler, fragTexCoord);
+        alpha = tex4.w;
+        diffuseColor = tex4.xyz;
+    }
 
     vec3 normal = fragNormal;
     vec3 normalMap = vec3(0,0,0);
@@ -123,7 +130,7 @@ void main() {
 		vec3 beginPos = currentLight.beginPos.xyz;
 		vec3 endPos = currentLight.endPos.xyz;
 		float t = sin(params.time * lightIndex * .001f);
-
+        
         vec3 lightPos = (1 - t) * beginPos + t * endPos;
         vec3 lightColor = currentLight.color.xyz;
         vec3 lightDir = lightPos - fragPosWorldSpace;
@@ -149,9 +156,13 @@ void main() {
     finalColor += ambientColor * 0.5;
     //outColor = vec4(finalColor, 1.0);
 
+    //gama correction
+    vec3 correctedColor = finalColor * finalColor;
+    correctedColor = sqrt(pow(correctedColor, vec3(1.0 / 1.6)));
+
     switch(params.debugMode){
         case 0: // basic lighting
-            outColor = vec4(finalColor, 1.0);
+            outColor = vec4(correctedColor, 1.0);
             break;
 
         case 1: // texture map
@@ -176,33 +187,34 @@ void main() {
 
 		case 6: // light heat map
             float tmp = lightGrid[tileIndex];
-            if(tmp <= 50.f)
+            if(tmp <= 20.f)
             {
-                outColor = vec4( 0.f, 0.f, tmp / 50.f, 1.f );
+                outColor = vec4( 0.f, 0.f, tmp / 20.f, 1.f );
             }
-            else if(tmp <= 100.f) {
-                outColor = vec4( 0.f, (tmp - 50.f) / 50.0f, 1.f, 1.f );
+            else if(tmp <= 40.f) {
+                outColor = vec4( 0.f, (tmp - 20.f) / 20.0f, 1.f, 1.f );
             }
             else {
-                outColor = vec4( (tmp - 100.f) / 100.f, 1.f, 1.f, 1.f );
+                outColor = vec4( (tmp - 40.f) / 20.f, 1.f, 1.f, 1.f );
             }
 
             // outColor *= vec4(diffuseColor, 1.0);
 			break;
 
-        case 7:
-            vec3 color = finalColor * finalColor;
-            color = sqrt(pow(color, vec3(1.0 / 2.0)));
-            outColor = vec4(color, 1.0);
+        case 7: // depth color
+            outColor = vec4(pow(texture(depthTexSampler, pixelCoord).rgb, vec3(2.0,2.0,2.0)), 1.0);
             break;
 
-        case 8:
-            outColor = vec4(texture(depthTexSampler, pixelCoord).rgb, 1.0);
-            break;
-
-        default:
+        case 8: // gama correction 
             outColor = vec4(finalColor, 1.0);
             break;
 
+        default:
+            outColor = vec4(correctedColor, 1.0);
+            break;
+
     }
+
+    if(alpha < 0.1)
+        discard;
 }

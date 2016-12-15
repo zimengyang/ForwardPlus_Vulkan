@@ -13,6 +13,17 @@
 #include <cstring>
 #include <sstream>
 
+const bool bDrawAxis = false;
+
+// forward plus pixels per tile
+// along one dimension, actural number will be the square of following values
+const int PIXELS_PER_TILE = 16;
+
+const int TILES_PER_THREADGROUP = 16;
+
+// number of lights
+const int NUM_OF_LIGHTS = 1000;
+
 VkResult CreateDebugReportCallbackEXT(VkInstance instance, const VkDebugReportCallbackCreateInfoEXT* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkDebugReportCallbackEXT* pCallback) {
 	auto func = (PFN_vkCreateDebugReportCallbackEXT)vkGetInstanceProcAddr(instance, "vkCreateDebugReportCallbackEXT");
 	if (func != nullptr) {
@@ -50,18 +61,9 @@ const std::vector<std::string> debugModeNameStrings = {
 	"mapped normal",
 	"spec texture",
 	"heat map",
-	"gamma correction"
+	"depth texture",
+	"no - color correction"
 };
-
-const bool bDrawAxis = false;
-
-// forward plus pixels per tile
-// along one dimension, actural number will be the square of following values
-const int PIXELS_PER_TILE = 8;
-const int TILES_PER_THREADGROUP = 16;
-
-// number of lights
-const int NUM_OF_LIGHTS = 1000;
 
 namespace std {
 	template<> struct hash<Vertex> {
@@ -237,7 +239,7 @@ void VulkanBaseApplication::updateUniformBuffer() {
 
 	// projection matrix
 	vsParams.proj = glm::perspective(glm::radians(45.0f),
-		swapChainExtent.width / (float)swapChainExtent.height, 50.0f, 5000.0f);
+		swapChainExtent.width / (float)swapChainExtent.height, 50.0f, 3000.0f);
 	vsParams.proj[1][1] *= -1;
 
 	// cameraPos
@@ -287,6 +289,32 @@ void VulkanBaseApplication::drawFrame() {
 
 	uint32_t imageIndex;
 	vkAcquireNextImageKHR(device, swapChain, std::numeric_limits<uint64_t>::max(), imageAvailableSemaphore, VK_NULL_HANDLE, &imageIndex);
+
+	static bool isFirstPass = true;
+	if (isFirstPass) {
+		isFirstPass = false;
+
+		VkFenceCreateInfo fenceCreateInfo = {};
+		fenceCreateInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+		fenceCreateInfo.pNext = nullptr;
+
+		if (vkCreateFence(device, &fenceCreateInfo, nullptr, fence.replace())
+	 			!= VK_SUCCESS) {
+			throw std::runtime_error("failed to create fence");
+		}
+
+		VkSubmitInfo frustumSubmitInfo = {};
+		frustumSubmitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+		frustumSubmitInfo.pNext = nullptr;
+		frustumSubmitInfo.commandBufferCount = 1;
+		frustumSubmitInfo.pCommandBuffers = &cmdBuffers.frustum;
+
+		if (vkQueueSubmit(graphicsQueue, 1, &frustumSubmitInfo, fence) != VK_SUCCESS) {
+			throw std::runtime_error("failed to submit depth command buffer!");
+		}
+
+		vkWaitForFences(device, 1, &fence, VK_TRUE, UINT64_MAX);
+	}
 
 	VkSubmitInfo depthSubmitInfo = {};
 	depthSubmitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
@@ -973,9 +1001,38 @@ void VulkanBaseApplication::createFrustumCommandBuffer() {
 	cmdBufInfo.commandBufferCount = 1;
 
 	if (vkAllocateCommandBuffers(device, &cmdBufInfo,
-		&cmdBuffers.frustum) != VK_SUCCESS) {
+			&cmdBuffers.frustum) != VK_SUCCESS) {
 		throw std::runtime_error("failed to allocate compute command buffers!");
 	}
+
+	VkCommandBufferBeginInfo cmdBufBeginInfo = {};
+	cmdBufBeginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+	cmdBufBeginInfo.pNext = nullptr;
+	cmdBufBeginInfo.flags = VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT;
+	cmdBufBeginInfo.pInheritanceInfo = nullptr;
+
+	vkBeginCommandBuffer(cmdBuffers.frustum, &cmdBufBeginInfo);
+
+	vkCmdBindPipeline(
+		cmdBuffers.frustum,
+		VK_PIPELINE_BIND_POINT_COMPUTE,
+		pipelines.computeFrustumGrid
+	);
+
+	vkCmdBindDescriptorSets(
+		cmdBuffers.frustum,
+		VK_PIPELINE_BIND_POINT_COMPUTE,
+		computePipelineLayout,
+		0, 1, &descriptorSet, 0, nullptr
+	);
+
+	vkCmdDispatch(
+		cmdBuffers.frustum,
+		fpParams.numThreadGroups.x,
+		fpParams.numThreadGroups.y, 1
+	);
+
+	vkEndCommandBuffer(cmdBuffers.frustum);
 }
 
 void VulkanBaseApplication::createComputeCommandBuffer() {
@@ -999,20 +1056,6 @@ void VulkanBaseApplication::createComputeCommandBuffer() {
 	cmdBufBeginInfo.pInheritanceInfo = nullptr;
 
 	vkBeginCommandBuffer(cmdBuffers.compute, &cmdBufBeginInfo);
-
-	std::vector<VkBufferMemoryBarrier> barriers0 = {
-		createBufferMemoryBarrier(
-			VK_ACCESS_SHADER_READ_BIT, VK_ACCESS_SHADER_WRITE_BIT,
-			sbo.frustums.buffer, sbo.frustums.allocSize
-		),
-	};
-
-	std::vector<VkBufferMemoryBarrier> barriers1 = {
-		createBufferMemoryBarrier(
-			VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT,
-			sbo.frustums.buffer, sbo.frustums.allocSize
-		),
-	};
 
 	std::vector<VkBufferMemoryBarrier> barriers2 = {
 		createBufferMemoryBarrier(
@@ -1043,43 +1086,6 @@ void VulkanBaseApplication::createComputeCommandBuffer() {
 			sbo.lightGrid.buffer, sbo.lightGrid.allocSize
 		),
 	};
-
-	// fs -> cs frustum
-	vkCmdPipelineBarrier(
-		cmdBuffers.compute,
-		VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-		VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-		VK_DEPENDENCY_BY_REGION_BIT,
-		0, nullptr, barriers0.size(), barriers0.data(), 0, nullptr
-	);
-
-	vkCmdBindPipeline(
-		cmdBuffers.compute,
-		VK_PIPELINE_BIND_POINT_COMPUTE,
-		pipelines.computeFrustumGrid
-	);
-
-	vkCmdBindDescriptorSets(
-		cmdBuffers.compute,
-		VK_PIPELINE_BIND_POINT_COMPUTE,
-		computePipelineLayout,
-		0, 1, &descriptorSet, 0, nullptr
-	);
-
-	vkCmdDispatch(
-		cmdBuffers.compute,
-		fpParams.numThreadGroups.x,
-		fpParams.numThreadGroups.y, 1
-	);
-
-	// cs frustum -> cs light list, needs 2 barriers
-	vkCmdPipelineBarrier(
-		cmdBuffers.compute,
-		VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-		VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-		VK_DEPENDENCY_BY_REGION_BIT,
-		0, nullptr, barriers1.size(), barriers1.data(), 0, nullptr
-	);
 
 	vkCmdPipelineBarrier(
 		cmdBuffers.compute,
@@ -1472,8 +1478,8 @@ void VulkanBaseApplication::createSemaphores() {
 	VkSemaphoreCreateInfo semaphoreInfo = {};
 	semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
 
-	if (vkCreateSemaphore(device, &semaphoreInfo, nullptr, imageAvailableSemaphore.replace()) != VK_SUCCESS ||
-			vkCreateSemaphore(device, &semaphoreInfo, nullptr, renderFinishedSemaphore.replace()) != VK_SUCCESS) {
+	if (vkCreateSemaphore(device, &semaphoreInfo, nullptr, imageAvailableSemaphore.replace()) != VK_SUCCESS
+			|| vkCreateSemaphore(device, &semaphoreInfo, nullptr, renderFinishedSemaphore.replace()) != VK_SUCCESS) {
 		throw std::runtime_error("failed to create semaphores!");
 	}
 }
@@ -1757,7 +1763,7 @@ void VulkanBaseApplication::createLightInfos() {
 		float posX = u(g) * dX - dX / 2.0f;
 		float posY = u(g) * dY + 100.0f;
 		float posZ = u(g) * dZ - dZ / 2.0f;
-		float intensity = u(g) * 0.005f;
+		float intensity = u(g) * 0.010f;
 
 		sboHostData.lights.lights[i].beginPos = glm::vec4(posX, posY, posZ, intensity);
 		sboHostData.lights.lights[i].endPos = sboHostData.lights.lights[i].beginPos;

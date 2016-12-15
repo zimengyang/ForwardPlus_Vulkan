@@ -2,10 +2,10 @@
 #extension GL_ARB_separate_shader_objects : enable
 #extension GL_ARB_shading_language_420pack : enable
 
-#define PIXELS_PER_TILE 128
+#define PIXELS_PER_TILE 16
 
 
-#define MAX_NUM_LIGHTS_PER_TILE 1024
+#define MAX_NUM_LIGHTS_PER_TILE 128
 
 struct Light {
 	vec4 beginPos; // beginPos.w is intensity
@@ -124,9 +124,8 @@ void main() {
 
 		vec3 beginPos = currentLight.beginPos.xyz;
 		vec3 endPos = currentLight.endPos.xyz;
-		// float t = sin(params.time * lightIndex * .001f);
-        float t = sin(lightIndex * .01f);
-
+		float t = sin(params.time * lightIndex * .001f);
+        
         vec3 lightPos = (1 - t) * beginPos + t * endPos;
         vec3 lightColor = currentLight.color.xyz;
         vec3 lightDir = lightPos - fragPosWorldSpace;

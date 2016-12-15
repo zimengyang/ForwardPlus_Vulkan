@@ -17,7 +17,7 @@ const bool bDrawAxis = false;
 
 // forward plus pixels per tile
 // along one dimension, actural number will be the square of following values
-const int PIXELS_PER_TILE = 128;
+const int PIXELS_PER_TILE = 16;
 
 const int TILES_PER_THREADGROUP = 16;
 

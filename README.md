@@ -10,7 +10,8 @@ Forward Plus Rendering in Vulkan
 
 ![overview](./img/screenshots/overview.jpg)
 
-### Demo Video
+# Demo Video
+
 [CLICK ME!](https://www.youtube.com/watch?v=w0gTf6PKHwI)
 
 # Debug Views
@@ -18,6 +19,8 @@ Forward Plus Rendering in Vulkan
 |Light Heat Map|
 |------|
 |![heat_map](./img/screenshots/lightHeatMap.jpg)|
+
+Above heat map is demonstrating how much lights should be considered in each tile, brighter color means more lights in the tile.
 
 |Texture Map|Normal Map|
 |------|------|

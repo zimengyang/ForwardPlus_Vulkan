@@ -186,6 +186,9 @@ private:
 	VDeleter<VkSemaphore> imageAvailableSemaphore{ device, vkDestroySemaphore };
 	VDeleter<VkSemaphore> renderFinishedSemaphore{ device, vkDestroySemaphore };
 
+	// fence
+	VDeleter<VkFence> fence {device, vkDestroyFence};
+
 	// shader modules
 	std::vector<VDeleter<VkShaderModule>> shaderModules;
 
@@ -193,6 +196,7 @@ private:
 	struct CommandBuffers {
 		std::vector<VkCommandBuffer> display;
 		VkCommandBuffer compute;
+		VkCommandBuffer frustum;
 	} cmdBuffers;
 
 	struct ShaderStages {
@@ -513,6 +517,8 @@ private:
 	void createCommandPool();
 
 	void createCommandBuffers();
+
+	void createFrustumCommandBuffer();
 
 	void createComputeCommandBuffer();
 

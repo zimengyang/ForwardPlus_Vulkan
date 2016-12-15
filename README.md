@@ -37,8 +37,6 @@ Forward Plus Rendering in Vulkan
 ### Forward+ Overview
 Forward+ improves upon regular forward rendering by first determining which lights are overlapping which area in screen space. During the shading phase, only the lights that are potentially overlapping the current fragment need to be considered.
 
-### Main Procedures
-
 *Forward Plus = forward + light culling*
 
 Basically, in order to implement a light culling, we need to compute Grid Frustums to cull the lights into the screen space tiles.
@@ -69,22 +67,39 @@ Basic algorithm for light culling:
 
 **Frustum-sphere** for points lights, **Frustum-cone** for spot lights.
 
+Computation details in [Forward+: Bringing Deferred Lighting to the Next Level](https://takahiroharada.files.wordpress.com/2015/04/forward_plus.pdf).
 
-# Vulkan
 
 # Performance Analysis
 
+Test schema:
+ * Machine - i7-4850 @ 2.3GHz 16GB, GT 750M
+ * Resolution - 1280 * 720
+ * Triangles Count - 262267
+ * Vertices Count - 184402
+ * Materials Count - 25
+ 
 ### Tile Size
 
 ![tile_size](./data/tile_size.png)
 
-todo
+For the performance comparison of tile size, we choose from 8 by 8 to 256 by 256 pixels tile. Under same computation pipelines and graphics pipelines, performance data can be collected as above.
+
+From different tests, we can see small tile size will introduce a lot of frustums to be computed and a lot of threads (compute shader) to do the computation for culling. But also a huge tile size will make the computation for each thread too heavy to make fully use of parallelization propertity of Vulkan compute shaders.
+
+In conclusion, a reasonable tile size that fits best in different hardwares might be 16 by 16 or 32 by 32 pixels.
 
 ### Number of Lights
 
 ![num_lights](./data/number_of_lights.png)
 
-todo
+Under same test schema, we test the influence of different number of lights.
+
+If we use basic Forward rendering, which is looping every in shading processure without light culling, the maximum number of lights that can be interactive is lower than 100 (under GTX 750M). But in forward+ rendering with light culling, the same machine will still be interactive with more than 1000 lights. In the deme video, which was tested under 965M a fancier graphics card, we can have near 100 FPS with 1024 dynamic lights in the scene. The benefits of forward+ light culling is very significant. 
+
+With increase of light numbers, FPS drops but still remain real-time (>30) with more than 1000 lights. So Forward+ rendering does improve the overall performance and reduce the influence of huge amount of lights in the scene by light culling.
+
+
 
 # Milestones 
 ### 11/21 - Basic Vulkan Application Framework
@@ -114,3 +129,4 @@ todo
 2. [Vulkan Examples](https://github.com/SaschaWillems/Vulkan)
 3. [Forward Plus Rendering](http://www.3dgep.com/forward-plus/)
 4. [Graphics Models](http://graphics.cs.williams.edu/data/meshes.xml)
+5. [Forward+: Bringing Deferred Lighting to the Next Level](https://takahiroharada.files.wordpress.com/2015/04/forward_plus.pdf)

@@ -177,7 +177,7 @@ void VulkanBaseApplication::resetTitleAndTiming() {
 	// timing and reset titles
 	frameCount++;
 	currentTime = std::chrono::high_resolution_clock::now();
-	float elapsedTime = std::chrono::duration_cast<std::chrono::milliseconds>(currentTime - prevTime).count(); // ms
+	float elapsedTime = std::chrono::duration_cast<std::chrono::microseconds>(currentTime - prevTime).count() / 1000.0f; // ms
 	totalElapsedTime += elapsedTime;
 	prevTime = currentTime;
 
@@ -193,7 +193,7 @@ void VulkanBaseApplication::resetTitleAndTiming() {
 	}
 
 	glfwSetWindowTitle(window, title.str().c_str());
-	if (frameCount % 50 == 0) {
+	if (frameCount % 300 == 0) {
 		std::cout << "Frame count = " << frameCount << " " << title.str() << std::endl;
 	}
 }
@@ -2725,6 +2725,17 @@ void VulkanBaseApplication::loadModel(MeshGroup & meshGroup, const std::string &
 			meshGroup.materials[i].useNormMap, meshGroup.normalMaps[i],
 			meshGroup.materials[i].useSpecMap, meshGroup.specMaps[i] );
 	}
+
+
+	// output statics
+	std::cout
+		<< "=================================================================================\n"
+		<< "Model informations: \n"
+		<< "unique vertices count = " << vertices.size() << std::endl
+		<< "triangles count = " << indices.size() / 3 << std::endl
+		<< "materials count = " << meshGroup.materials.size() << std::endl
+		<< "objects count = " << shapes.size() << std::endl
+		<< "=================================================================================\n" ;
 }
 
 void VulkanBaseApplication::createDescriptorSetsForMeshGroup(VkDescriptorSet & descriptorSet, VulkanBuffer & buffer, int useTex, Texture & texMap, int useNorm, Texture & norMap, int useSpec, Texture & specMap) {

@@ -214,7 +214,7 @@ void main() {
             break;
 
     }
-
+    
     if(alpha < 0.1)
         discard;
 }

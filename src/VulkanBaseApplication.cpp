@@ -1743,7 +1743,7 @@ void VulkanBaseApplication::createLightInfos() {
 		float posX = u(g) * dX - dX / 2.0f;
 		float posY = u(g) * dY + 100.0f;
 		float posZ = u(g) * dZ - dZ / 2.0f;
-		float intensity = u(g) * 0.005f;
+		float intensity = u(g) * 0.010f;
 
 		sboHostData.lights.lights[i].beginPos = glm::vec4(posX, posY, posZ, intensity);
 		sboHostData.lights.lights[i].endPos = sboHostData.lights.lights[i].beginPos;

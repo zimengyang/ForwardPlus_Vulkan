@@ -6,12 +6,38 @@ Forward Plus Rendering in Vulkan
 * [Liang Peng](https://github.com/itoupeter), [Zimeng Yang](https://github.com/zimengyang)
 * Tested on: Windows 10, i7-4850 @ 2.3GHz 16GB, GT 750M (Personal Laptop)
 
+# Overview
+
+![overview](./img/screenshots/overview.jpg)
+
+### Demo Video (todo)
+![video]()
+
+# Debug Views
+
+|Light Heat Map|
+|------|
+|![heat_map](./img/screenshots/lightHeatMap.jpg)|
+
+|Texture Map|Normal Map|
+|------|------|
+|![texmap](./img/screenshots/textureMap.jpg)|![norm_map](./img/screenshots/normalMap.jpg)|
+
+|Specular Map|Depth Texture|
+|------|------|
+|![specularmap](./img/screenshots/specularMap.jpg)|![depthTex](./img/screenshots/depthTexture.jpg)|
+
+|Geometry Normal | After Normal Mapping|
+|------|------|
+|![geom_norm](./img/screenshots/geomNormal.jpg)|![mapped_norm](./img/screenshots/mappedNormal.jpg)|
+
+
 # Forward Plus Rendering
 
-## Forward+ Overview
+### Forward+ Overview
 Forward+ improves upon regular forward rendering by first determining which lights are overlapping which area in screen space. During the shading phase, only the lights that are potentially overlapping the current fragment need to be considered.
 
-## Main Procedures
+### Main Procedures
 
 *Forward Plus = forward + light culling*
 
@@ -46,13 +72,22 @@ Basic algorithm for light culling:
 
 # Vulkan
 
+# Performance Analysis
 
+### Tile Size
 
-## Milestone
-### 11/21 Basic Vulkan Application Framework
+![tile_size](./data/tile_size.png)
 
-![basic_vulkan](./img/readme/vulkanBase.png)
+todo
 
+### Number of Lights
+
+![num_lights](./data/number_of_lights.png)
+
+todo
+
+# Milestones 
+### 11/21 - Basic Vulkan Application Framework
   * Vulkan environment setup and initialization
   * Basic rendering pipelines (multiple)
   * Vertex and index buffers (multiple)
@@ -60,28 +95,19 @@ Basic algorithm for light culling:
   * Basic camera control
   * [Presentation Slides](./img/slides/milestone1.pdf)
 
-### 11/28 Basic Lighting in Vulkan / Debug Views
-
-![basic_lighting](./img/gifs/basic_lighting.gif)
-
+### 11/28 - Basic Lighting in Vulkan / Debug Views
   * Debug views: depth, normal
   * Basic lighting: Lambert, Blinn-Phong
   * Compute pipeline in progress
   * [Presentation Slides](./img/slides/milestone2.pdf)
 
-### 12/12 Forward+
-
-![basic_lighting](./img/gifs/milestone3_1600lights.gif)
-
-![basic_lighting](./img/gifs/milestone3_heatmap_1600lights.gif)
-
+### 12/12 - Forward+
   * Compute pipeline
     * Compute grid frustum
     * Compute light list
   * Light culling
   * Shading
   * [Presentation Slides](./img/slides/milestone3.pdf)
-
 
 # References:
 1. [Vulkan Tutorial](https://vulkan-tutorial.com/)

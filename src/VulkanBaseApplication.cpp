@@ -22,7 +22,7 @@ const int PIXELS_PER_TILE = 16;
 const int TILES_PER_THREADGROUP = 16;
 
 // number of lights
-const int NUM_OF_LIGHTS = 1000;
+const int NUM_OF_LIGHTS = 1024;
 
 VkResult CreateDebugReportCallbackEXT(VkInstance instance, const VkDebugReportCallbackCreateInfoEXT* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkDebugReportCallbackEXT* pCallback) {
 	auto func = (PFN_vkCreateDebugReportCallbackEXT)vkGetInstanceProcAddr(instance, "vkCreateDebugReportCallbackEXT");

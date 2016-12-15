@@ -2,8 +2,10 @@
 #extension GL_ARB_separate_shader_objects : enable
 #extension GL_ARB_shading_language_420pack : enable
 
+#define PIXELS_PER_TILE 128
+
+
 #define MAX_NUM_LIGHTS_PER_TILE 1024
-#define PIXELS_PER_TILE 8
 
 struct Light {
 	vec4 beginPos; // beginPos.w is intensity
@@ -122,7 +124,8 @@ void main() {
 
 		vec3 beginPos = currentLight.beginPos.xyz;
 		vec3 endPos = currentLight.endPos.xyz;
-		float t = sin(params.time * lightIndex * .001f);
+		// float t = sin(params.time * lightIndex * .001f);
+        float t = sin(lightIndex * .01f);
 
         vec3 lightPos = (1 - t) * beginPos + t * endPos;
         vec3 lightColor = currentLight.color.xyz;
@@ -176,15 +179,15 @@ void main() {
 
 		case 6: // light heat map
             float tmp = lightGrid[tileIndex];
-            if(tmp <= 50.f)
+            if(tmp <= 30.f)
             {
-                outColor = vec4( 0.f, 0.f, tmp / 50.f, 1.f );
+                outColor = vec4( 0.f, 0.f, tmp / 30.f, 1.f );
             }
-            else if(tmp <= 100.f) {
-                outColor = vec4( 0.f, (tmp - 50.f) / 50.0f, 1.f, 1.f );
+            else if(tmp <= 60.f) {
+                outColor = vec4( 0.f, (tmp - 30.f) / 30.0f, 1.f, 1.f );
             }
             else {
-                outColor = vec4( (tmp - 100.f) / 100.f, 1.f, 1.f, 1.f );
+                outColor = vec4( (tmp - 60.f) / 30.f, 1.f, 1.f, 1.f );
             }
 
             // outColor *= vec4(diffuseColor, 1.0);

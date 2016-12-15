@@ -13,6 +13,17 @@
 #include <cstring>
 #include <sstream>
 
+const bool bDrawAxis = false;
+
+// forward plus pixels per tile
+// along one dimension, actural number will be the square of following values
+const int PIXELS_PER_TILE = 128;
+
+const int TILES_PER_THREADGROUP = 16;
+
+// number of lights
+const int NUM_OF_LIGHTS = 1000;
+
 VkResult CreateDebugReportCallbackEXT(VkInstance instance, const VkDebugReportCallbackCreateInfoEXT* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkDebugReportCallbackEXT* pCallback) {
 	auto func = (PFN_vkCreateDebugReportCallbackEXT)vkGetInstanceProcAddr(instance, "vkCreateDebugReportCallbackEXT");
 	if (func != nullptr) {
@@ -52,16 +63,6 @@ const std::vector<std::string> debugModeNameStrings = {
 	"heat map",
 	"gamma correction"
 };
-
-const bool bDrawAxis = false;
-
-// forward plus pixels per tile
-// along one dimension, actural number will be the square of following values
-const int PIXELS_PER_TILE = 8;
-const int TILES_PER_THREADGROUP = 16;
-
-// number of lights
-const int NUM_OF_LIGHTS = 1000;
 
 namespace std {
 	template<> struct hash<Vertex> {
@@ -1034,7 +1035,7 @@ void VulkanBaseApplication::createComputeCommandBuffer() {
 		cmdBuffers.compute,
 		VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
 		VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-		VK_DEPENDENCY_BY_REGION_BIT,
+		0,
 		0, nullptr, barriers0.size(), barriers0.data(), 0, nullptr
 	);
 
@@ -1062,7 +1063,7 @@ void VulkanBaseApplication::createComputeCommandBuffer() {
 		cmdBuffers.compute,
 		VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
 		VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-		VK_DEPENDENCY_BY_REGION_BIT,
+		0,
 		0, nullptr, barriers1.size(), barriers1.data(), 0, nullptr
 	);
 
@@ -1070,7 +1071,7 @@ void VulkanBaseApplication::createComputeCommandBuffer() {
 		cmdBuffers.compute,
 		VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
 		VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-		VK_DEPENDENCY_BY_REGION_BIT,
+		0,
 		0, nullptr, barriers2.size(), barriers2.data(), 0, nullptr
 	);
 
@@ -1098,7 +1099,7 @@ void VulkanBaseApplication::createComputeCommandBuffer() {
 		cmdBuffers.compute,
 		VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
 		VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
-		VK_DEPENDENCY_BY_REGION_BIT,
+		0,
 		0, nullptr, barriers3.size(), barriers3.data(), 0, nullptr
 	);
 

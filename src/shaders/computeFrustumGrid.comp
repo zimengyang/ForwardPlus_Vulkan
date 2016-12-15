@@ -2,7 +2,7 @@
 #extension GL_ARB_separate_shader_objects : enable
 #extension GL_ARB_shading_language_420pack : enable
 
-#define PIXELS_PER_TILE 8
+#define PIXELS_PER_TILE 128
 
 struct Light {
 	vec4 beginPos; // beginPos.w is intensity
@@ -86,13 +86,13 @@ void main()
     // frustum vertices.
     vec4 screenSpace[4];
     // Top left point
-    screenSpace[0] = vec4( gl_GlobalInvocationID.xy * PIXELS_PER_TILE, 1.0f, 1.0f );
+    screenSpace[0] = vec4( gl_GlobalInvocationID.xy * PIXELS_PER_TILE, -1.0f, 1.0f );
     // Top right point
-    screenSpace[1] = vec4( vec2( gl_GlobalInvocationID.x + 1, gl_GlobalInvocationID.y ) * PIXELS_PER_TILE, 1.0f, 1.0f );
+    screenSpace[1] = vec4( vec2( gl_GlobalInvocationID.x + 1, gl_GlobalInvocationID.y ) * PIXELS_PER_TILE, -1.0f, 1.0f );
     // Bottom left point
-    screenSpace[2] = vec4( vec2( gl_GlobalInvocationID.x, gl_GlobalInvocationID.y + 1 ) * PIXELS_PER_TILE, 1.0f, 1.0f );
+    screenSpace[2] = vec4( vec2( gl_GlobalInvocationID.x, gl_GlobalInvocationID.y + 1 ) * PIXELS_PER_TILE, -1.0f, 1.0f );
     // Bottom right point
-    screenSpace[3] = vec4( vec2( gl_GlobalInvocationID.x + 1, gl_GlobalInvocationID.y + 1 ) * PIXELS_PER_TILE, 1.0f, 1.0f );
+    screenSpace[3] = vec4( vec2( gl_GlobalInvocationID.x + 1, gl_GlobalInvocationID.y + 1 ) * PIXELS_PER_TILE, -1.0f, 1.0f );
 
     vec3 viewSpace[4];
     // Now convert the screen space points to view space

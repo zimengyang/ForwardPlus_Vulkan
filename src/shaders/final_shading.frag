@@ -192,9 +192,9 @@ void main() {
             // outColor *= vec4(diffuseColor, 1.0);
 			break;
 
-        case 7:
+        case 7: // gama correction 
             vec3 color = finalColor * finalColor;
-            color = sqrt(pow(color, vec3(1.0 / 2.0)));
+            color = sqrt(pow(color, vec3(1.0 / 1.6)));
             outColor = vec4(color, 1.0);
             break;
 

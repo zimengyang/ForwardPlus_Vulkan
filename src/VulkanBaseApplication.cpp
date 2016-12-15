@@ -13,6 +13,17 @@
 #include <cstring>
 #include <sstream>
 
+const bool bDrawAxis = false;
+
+// forward plus pixels per tile
+// along one dimension, actural number will be the square of following values
+const int PIXELS_PER_TILE = 16;
+
+const int TILES_PER_THREADGROUP = 16;
+
+// number of lights
+const int NUM_OF_LIGHTS = 1000;
+
 VkResult CreateDebugReportCallbackEXT(VkInstance instance, const VkDebugReportCallbackCreateInfoEXT* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkDebugReportCallbackEXT* pCallback) {
 	auto func = (PFN_vkCreateDebugReportCallbackEXT)vkGetInstanceProcAddr(instance, "vkCreateDebugReportCallbackEXT");
 	if (func != nullptr) {
@@ -50,18 +61,9 @@ const std::vector<std::string> debugModeNameStrings = {
 	"mapped normal",
 	"spec texture",
 	"heat map",
-	"gamma correction"
+	"depth texture",
+	"no - color correction"
 };
-
-const bool bDrawAxis = false;
-
-// forward plus pixels per tile
-// along one dimension, actural number will be the square of following values
-const int PIXELS_PER_TILE = 8;
-const int TILES_PER_THREADGROUP = 16;
-
-// number of lights
-const int NUM_OF_LIGHTS = 1000;
 
 namespace std {
 	template<> struct hash<Vertex> {
@@ -237,7 +239,7 @@ void VulkanBaseApplication::updateUniformBuffer() {
 
 	// projection matrix
 	vsParams.proj = glm::perspective(glm::radians(45.0f),
-		swapChainExtent.width / (float)swapChainExtent.height, 50.0f, 5000.0f);
+		swapChainExtent.width / (float)swapChainExtent.height, 50.0f, 3000.0f);
 	vsParams.proj[1][1] *= -1;
 
 	// cameraPos
@@ -1761,7 +1763,7 @@ void VulkanBaseApplication::createLightInfos() {
 		float posX = u(g) * dX - dX / 2.0f;
 		float posY = u(g) * dY + 100.0f;
 		float posZ = u(g) * dZ - dZ / 2.0f;
-		float intensity = u(g) * 0.005f;
+		float intensity = u(g) * 0.010f;
 
 		sboHostData.lights.lights[i].beginPos = glm::vec4(posX, posY, posZ, intensity);
 		sboHostData.lights.lights[i].endPos = sboHostData.lights.lights[i].beginPos;

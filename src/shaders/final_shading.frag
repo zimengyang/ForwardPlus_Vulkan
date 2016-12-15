@@ -151,9 +151,13 @@ void main() {
     finalColor += ambientColor * 0.5;
     //outColor = vec4(finalColor, 1.0);
 
+    //gama correction
+    vec3 correctedColor = finalColor * finalColor;
+    correctedColor = sqrt(pow(correctedColor, vec3(1.0 / 1.6)));
+
     switch(params.debugMode){
         case 0: // basic lighting
-            outColor = vec4(finalColor, 1.0);
+            outColor = vec4(correctedColor, 1.0);
             break;
 
         case 1: // texture map
@@ -192,18 +196,16 @@ void main() {
             // outColor *= vec4(diffuseColor, 1.0);
 			break;
 
-        case 7: // gama correction 
-            vec3 color = finalColor * finalColor;
-            color = sqrt(pow(color, vec3(1.0 / 1.6)));
-            outColor = vec4(color, 1.0);
-            break;
-
-        case 8:
+        case 7: // depth color
             outColor = vec4(texture(depthTexSampler, pixelCoord).rgb, 1.0);
             break;
 
-        default:
+        case 8: // gama correction 
             outColor = vec4(finalColor, 1.0);
+            break;
+
+        default:
+            outColor = vec4(correctedColor, 1.0);
             break;
 
     }

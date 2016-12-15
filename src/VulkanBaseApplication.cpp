@@ -61,7 +61,8 @@ const std::vector<std::string> debugModeNameStrings = {
 	"mapped normal",
 	"spec texture",
 	"heat map",
-	"gamma correction"
+	"depth texture",
+	"no - color correction"
 };
 
 namespace std {
@@ -238,7 +239,7 @@ void VulkanBaseApplication::updateUniformBuffer() {
 
 	// projection matrix
 	vsParams.proj = glm::perspective(glm::radians(45.0f),
-		swapChainExtent.width / (float)swapChainExtent.height, 50.0f, 5000.0f);
+		swapChainExtent.width / (float)swapChainExtent.height, 50.0f, 3000.0f);
 	vsParams.proj[1][1] *= -1;
 
 	// cameraPos

@@ -3,7 +3,8 @@ Forward Plus Rendering in Vulkan
 
 **Final Project of CIS 565: GPU Programming and Architecture, University of Pennsylvania**
 
-* [Liang Peng](https://github.com/itoupeter), [Zimeng Yang](https://github.com/zimengyang)
+* Liang Peng [Github](https://github.com/itoupeter) [LinkedIn](https://www.linkedin.com/in/pennliang)
+* Zimeng Yang [Github](https://github.com/zimengyang) [LinkedIn](https://www.linkedin.com/in/zimeng-yang-83602210a)
 * Tested on: Windows 10, i7-4850 @ 2.3GHz 16GB, GT 750M (Personal Laptop)
 
 # Overview

@@ -82,7 +82,7 @@ Test schema:
  * Triangles Count - 262267
  * Vertices Count - 184402
  * Materials Count - 25
- 
+
 ### Tile Size
 
 ![tile_size](./data/tile_size.png)
@@ -99,13 +99,12 @@ In conclusion, a reasonable tile size that fits best in different hardwares migh
 
 Under same test schema, we test the influence of different number of lights.
 
-If we use basic Forward rendering, which is looping every in shading processure without light culling, the maximum number of lights that can be interactive is lower than 100 (under GTX 750M). But in forward+ rendering with light culling, the same machine will still be interactive with more than 1000 lights. In the deme video, which was tested under 965M a fancier graphics card, we can have near 100 FPS with 1024 dynamic lights in the scene. The benefits of forward+ light culling is very significant. 
+If we use basic Forward rendering, which is looping every in shading processure without light culling, the maximum number of lights that can be interactive is lower than 100 (under GTX 750M). But in forward+ rendering with light culling, the same machine will still be interactive with more than 1000 lights. In the deme video, which was tested under 965M a fancier graphics card, we can have near 100 FPS with 1024 dynamic lights in the scene. The benefits of forward+ light culling is very significant.
 
 With increase of light numbers, FPS drops but still remain real-time (>30) with more than 1000 lights. So Forward+ rendering does improve the overall performance and reduce the influence of huge amount of lights in the scene by light culling.
 
 
-
-# Milestones 
+# Milestones
 ### 11/21 - Basic Vulkan Application Framework
   * Vulkan environment setup and initialization
   * Basic rendering pipelines (multiple)
@@ -127,6 +126,23 @@ With increase of light numbers, FPS drops but still remain real-time (>30) with 
   * Light culling
   * Shading
   * [Presentation Slides](./img/slides/milestone3.pdf)
+
+
+# Install Instructions
+### Windows
+1. Make sure you have installed [Vulkan SDK](https://vulkan.lunarg.com/sdk/home) and environment variable __VULKAN_SDK__ correctly set.
+2. Install [CMake](https://cmake.org/download/) 3.5 or later version.
+3. Clone the repo, in command prompt navigate to the project root dir.
+4. Run command
+```
+mkdir build
+cd build
+cmake-gui ..
+```
+5. In CMake GUI, configure VS2015 and generate solution.
+6. Open solution, set project vulkan_forward_plus as start-up project and switch to __release mode__.
+7. Run
+
 
 # References:
 1. [Vulkan Tutorial](https://vulkan-tutorial.com/)

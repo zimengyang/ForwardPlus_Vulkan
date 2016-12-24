@@ -144,9 +144,16 @@ cmake-gui ..
 7. Run
 
 
-# References:
+# References 
 1. [Vulkan Tutorial](https://vulkan-tutorial.com/)
 2. [Vulkan Examples](https://github.com/SaschaWillems/Vulkan)
 3. [Forward Plus Rendering](http://www.3dgep.com/forward-plus/)
 4. [Graphics Models](http://graphics.cs.williams.edu/data/meshes.xml)
 5. [Forward+: Bringing Deferred Lighting to the Next Level](https://takahiroharada.files.wordpress.com/2015/04/forward_plus.pdf)
+
+# 3rd Party Library and Asset Credits
+1. [STB](https://github.com/nothings/stb)
+2. [tinyobjloader](https://github.com/syoyo/tinyobjloader)
+3. [CryTek Sponza](http://www.crytek.com/cryengine/cryengine3/downloads)
+4. [GLFW](http://www.glfw.org)
+5. [GLM](http://glm.g-truc.net/0.9.8/index.html)

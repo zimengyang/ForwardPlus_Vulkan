@@ -13,7 +13,7 @@ Forward Plus Rendering in Vulkan
 
 # Demo Video
 
-[[video](./img/readme/video.jpg)](https://www.youtube.com/watch?v=w0gTf6PKHwI)
+[![](./img/readme/video.jpg)](https://www.youtube.com/watch?v=w0gTf6PKHwI)
 
 # Debug Views
 

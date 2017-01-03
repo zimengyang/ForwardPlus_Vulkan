@@ -3,8 +3,10 @@ Forward Plus Rendering in Vulkan
 
 **Final Project of CIS 565: GPU Programming and Architecture, University of Pennsylvania**
 
-* Liang Peng [Github](https://github.com/itoupeter) [LinkedIn](https://www.linkedin.com/in/pennliang)
-* Zimeng Yang [Github](https://github.com/zimengyang) [LinkedIn](https://www.linkedin.com/in/zimeng-yang-83602210a)
+* Liang Peng 
+ * [Github](https://github.com/itoupeter) [LinkedIn](https://www.linkedin.com/in/pennliang)
+* Zimeng Yang  
+ * [Github](https://github.com/zimengyang) [LinkedIn](https://www.linkedin.com/in/zimeng-yang-83602210a)
 * Tested on: Windows 10, i7-4850 @ 2.3GHz 16GB, GT 750M (Personal Laptop)
 
 # Overview
@@ -15,27 +17,6 @@ Forward Plus Rendering in Vulkan
 
 [![](./img/readme/video.jpg)](https://www.youtube.com/watch?v=w0gTf6PKHwI)
 
-# Debug Views
-
-|Light Heat Map|
-|------|
-|![heat_map](./img/screenshots/lightHeatMap.jpg)|
-
-Above heat map is demonstrating how much lights should be considered in each tile, brighter color means more lights in the tile.
-
-|Texture Map|Normal Map|
-|------|------|
-|![texmap](./img/screenshots/textureMap.jpg)|![norm_map](./img/screenshots/normalMap.jpg)|
-
-|Specular Map|Depth Texture|
-|------|------|
-|![specularmap](./img/screenshots/specularMap.jpg)|![depthTex](./img/screenshots/depthTexture.jpg)|
-
-|Geometry Normal | After Normal Mapping|
-|------|------|
-|![geom_norm](./img/screenshots/geomNormal.jpg)|![mapped_norm](./img/screenshots/mappedNormal.jpg)|
-
-
 # Forward Plus Rendering
 
 ### Forward+ Overview
@@ -43,19 +24,29 @@ Forward+ improves upon regular forward rendering by first determining which ligh
 
 *Forward Plus = forward + light culling*
 
-Basically, in order to implement a light culling, we need to compute Grid Frustums to cull the lights into the screen space tiles.
+Basically, in order to implement a light culling, we need to compute Grid Frustums to cull the lights into the screen space tiles. The formula above is very straight forward, before applying final shading stage like we do in forward rendering, we need to cull the lights with frustums. Before compute the intersection of frustums and lights, a depth pre-pass will be applied to get the depth information for each tile.
+
+### Depth Pre-pass
+
+First step of Forward+ rendering is to get the depth texture of the scene. In order to get the depth information in the scene, a depth pre-pass will be applied first before the computation of frustums and lights culling. So, we create a new pipeline which only contains a vertex shader stage and the vertex shader is the same as the later final shading stage. We save the depth buffer for that pre-pass pipeline, and then pass the depth texture as an input to the next light culling pass. The depth pre-pass output looks like the same as the depth buffer texture:
+
+|Depth Pre-pass Output|
+|------|
+|![depthTex](./img/screenshots/depthTexture.jpg)|
+
+After got the depth information of scene, we can pass this output texture to following compute stages.
 
 ### Grid Frustums
 
-The screen is divided into a number of square tiles, for example, 16 * 16 screen pixels.
+The second step of Forward+ rendering is to compute the frustum for each screen tile. The screen is divided into a number of square tiles, for example, 16 * 16 screen pixels. Like the following picture demonstrates:
 
-![Tile Frustum](./img/readme/Tile-Frustum1.png)
+|Grid Frustum|
+|------|
+|![Tile Frustum](./img/readme/Tile-Frustum1.png)|
 
 The above image shows that the camera’s position (eye) is the origin of the frustum and the corner points of the tile denote the frustum corners. With this information, we can compute the planes of the tile frustum.
 
-### Grid Frustums Compute Shader
-
-We need compute shaders to compute and grid frustums for each screen tile.
+Since the grid frustums are computed in view space, so we don't need to recompute them until the size or resolution of screen changed.
 
 ### Light culling
 
@@ -67,11 +58,41 @@ Basic algorithm for light culling:
 2. Cull the lights and record the lights into a light index list
 3. Copy the light index list into global memory
 
-### Frustum culling
+For the first task above, since we have the depth texture from depth pre-pass, we can iterate through all pixels in a single tile, and get the min/max depth value of that tile. Then we use four planes from grid frustum and two depth values for computing light-frustum culling.
 
-**Frustum-sphere** for points lights, **Frustum-cone** for spot lights.
+The second task requires some math computation for light-frustum intersection. We use a sphere to represent point light. We only implemented point light in this project. Maybe we can add more support for different light source.
 
-Computation details in [Forward+: Bringing Deferred Lighting to the Next Level](https://takahiroharada.files.wordpress.com/2015/04/forward_plus.pdf).
+The third task is pretty straight forward, after culling the lights, we only store these lights that might intersect with the frustum into the light list of that tile. We also need a global light index list for indexing the light information in final shading stage.
+
+A head-map can represent the results from above three steps:
+
+|Light Heat Map|
+|------|
+|![heat_map](./img/screenshots/lightHeatMap.jpg)|
+
+For the heap-map, brighter color means more lights in tile. We use 16*16 pixels per tile. 
+
+More details in [Forward+: Bringing Deferred Lighting to the Next Level](https://takahiroharada.files.wordpress.com/2015/04/forward_plus.pdf).
+
+### Final Shading Stage
+
+The last stage is final shading stage just like what we do in forward rendering. The only different is that we only iterate through the culled light list of tile instead of all lights in the scene. Shading is expensive, the number of lights in the scene might be over 1000, but after culling, we only need to consider the lights in the light list of that tile which is much much less.
+
+In final shading stage, we implemented a Blinn-Phong shading. We also implemented the normal map, specular map and texture map. We supported different models with multiple materials. Different material might have different textures, in Vulkan, we created a new VkDescriptorSet for each single material. During the rendering stage, we group the surfaces by their material type, then use a single draw call for rendering all the surfaces with same materials. Before each draw call for different materials, we also bind the corresponding VkDescriptorSet for that material.
+
+|Texture Map|Normal Map|
+|------|------|
+|![texmap](./img/screenshots/textureMap.jpg)|![norm_map](./img/screenshots/normalMap.jpg)|
+
+|Specular Map|After Normal Mapping|
+|------|------|
+|![specularmap](./img/screenshots/specularMap.jpg)|![mapped_norm](./img/screenshots/mappedNormal.jpg)|
+
+After combining all the material information, we can perform a binn-phong shading, final result looks like:
+
+|Final Result|
+|------|
+|![overview](./img/screenshots/overview.jpg)|
 
 
 # Performance Analysis
@@ -91,7 +112,7 @@ For the performance comparison of tile size, we choose from 8 by 8 to 256 by 256
 
 From different tests, we can see small tile size will introduce a lot of frustums to be computed and a lot of threads (compute shader) to do the computation for culling. But also a huge tile size will make the computation for each thread too heavy to make fully use of parallelization propertity of Vulkan compute shaders.
 
-In conclusion, a reasonable tile size that fits best in different hardwares might be 16 by 16 or 32 by 32 pixels.
+In conclusion, a reasonable tile size that fits best in different hard wares might be 16 by 16 or 32 by 32 pixels.
 
 ### Number of Lights
 

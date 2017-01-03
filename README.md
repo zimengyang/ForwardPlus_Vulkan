@@ -24,11 +24,15 @@ Forward+ improves upon regular forward rendering by first determining which ligh
 
 *Forward Plus = forward + light culling*
 
-Basically, in order to implement a light culling, we need to compute Grid Frustums to cull the lights into the screen space tiles. The formula above is very straight forward, before applying final shading stage like we do in forward rendering, we need to cull the lights with frustums. Before compute the intersection of frustums and lights, a depth pre-pass will be applied to get the depth information for each tile.
+Basically, in order to implement a light culling, we need to compute Grid Frustums to cull the lights into the screen space tiles. The formula above is very straight forward, before applying final shading stage like we do in forward rendering, we need to cull the lights with frustums. 
+
+Before compute the intersection of frustums and lights, a depth pre-pass will be applied to get the depth information for each tile.
 
 ### Depth Pre-pass
 
-First step of Forward+ rendering is to get the depth texture of the scene. In order to get the depth information in the scene, a depth pre-pass will be applied first before the computation of frustums and lights culling. So, we create a new pipeline which only contains a vertex shader stage and the vertex shader is the same as the later final shading stage. We save the depth buffer for that pre-pass pipeline, and then pass the depth texture as an input to the next light culling pass. The depth pre-pass output looks like the same as the depth buffer texture:
+First step of Forward+ rendering is to get the depth texture of the scene. In order to get the depth information in the scene, a depth pre-pass will be applied first before the computation of frustums and lights culling. So, we create a new pipeline which only contains a vertex shader stage and the vertex shader is the same as the later final shading stage. We save the depth buffer for that pre-pass pipeline, and then pass the depth texture as an input to the next light culling pass. 
+
+The depth pre-pass output looks like the same as the depth buffer texture:
 
 |Depth Pre-pass Output|
 |------|
@@ -78,7 +82,9 @@ More details in [Forward+: Bringing Deferred Lighting to the Next Level](https:/
 
 The last stage is final shading stage just like what we do in forward rendering. The only different is that we only iterate through the culled light list of tile instead of all lights in the scene. Shading is expensive, the number of lights in the scene might be over 1000, but after culling, we only need to consider the lights in the light list of that tile which is much less.
 
-In final shading stage, we implemented a Blinn-Phong shading. We also implemented the normal mapping, specular mapping and texture mapping. We supported different models with multiple materials. Different material might have different textures, in Vulkan, we created a new VkDescriptorSet for each single material. During the rendering stage, we group the surfaces by their material type, then use a single draw call for rendering all the surfaces with same materials. Before each draw call for different materials, we also bind the corresponding VkDescriptorSet for that material.
+In final shading stage, we implemented a Blinn-Phong shading. We also implemented the normal mapping, specular mapping and texture mapping. 
+
+We supported different models with multiple materials. Different material might have different textures, in Vulkan, we created a new VkDescriptorSet for each single material. During the rendering stage, we group the surfaces by their material type, then use a single draw call for rendering all the surfaces with same materials. Before each draw call for different materials, we also bind the corresponding VkDescriptorSet for that material.
 
 |Texture Map|Normal Map|
 |------|------|

@@ -76,9 +76,9 @@ More details in [Forward+: Bringing Deferred Lighting to the Next Level](https:/
 
 ### Final Shading Stage
 
-The last stage is final shading stage just like what we do in forward rendering. The only different is that we only iterate through the culled light list of tile instead of all lights in the scene. Shading is expensive, the number of lights in the scene might be over 1000, but after culling, we only need to consider the lights in the light list of that tile which is much much less.
+The last stage is final shading stage just like what we do in forward rendering. The only different is that we only iterate through the culled light list of tile instead of all lights in the scene. Shading is expensive, the number of lights in the scene might be over 1000, but after culling, we only need to consider the lights in the light list of that tile which is much less.
 
-In final shading stage, we implemented a Blinn-Phong shading. We also implemented the normal map, specular map and texture map. We supported different models with multiple materials. Different material might have different textures, in Vulkan, we created a new VkDescriptorSet for each single material. During the rendering stage, we group the surfaces by their material type, then use a single draw call for rendering all the surfaces with same materials. Before each draw call for different materials, we also bind the corresponding VkDescriptorSet for that material.
+In final shading stage, we implemented a Blinn-Phong shading. We also implemented the normal mapping, specular mapping and texture mapping. We supported different models with multiple materials. Different material might have different textures, in Vulkan, we created a new VkDescriptorSet for each single material. During the rendering stage, we group the surfaces by their material type, then use a single draw call for rendering all the surfaces with same materials. Before each draw call for different materials, we also bind the corresponding VkDescriptorSet for that material.
 
 |Texture Map|Normal Map|
 |------|------|
